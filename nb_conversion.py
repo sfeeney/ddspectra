@@ -114,6 +114,7 @@ if datafile is None:
 	mask = np.reshape(npr.choice(2, n_bins * n_spectra, p=[0.14, 0.86]), \
 					  spectra_true.shape)
 	data = mask * (spectra_true + noise)
+	wl = np.arange(n_bins)
 	if diagnose:
 		print float(np.sum(mask==1.0)) / float(np.sum(mask==0.0)), 0.86/0.14
 		mp.imshow(data, interpolation='nearest')
@@ -249,9 +250,9 @@ if rank == 0:
 						label=r'posterior $\sigma$')
 		mp.plot(wl, mp_mean, 'r', label='posterior mean')
 	else:
-		mp.fill_between(range(n_bins), -np.sqrt(var_noise), \
-						np.sqrt(var_noise), color='grey', \
-						label=r'noise $\sigma$')
+		#mp.fill_between(range(n_bins), -np.sqrt(var_noise), \
+		#				np.sqrt(var_noise), color='grey', \
+		#				label=r'noise $\sigma$')
 		mp.fill_between(range(n_bins), mp_mean - mean - sdp_mean, \
 						mp_mean - mean + sdp_mean, color='LightGrey', \
 						label=r'posterior $\sigma$')
