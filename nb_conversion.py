@@ -3,6 +3,10 @@ import numpy.random as npr
 import numpy.linalg as npl
 import scipy.stats as sps
 import h5py
+import os
+if 'DISPLAY' not in os.environ.keys():
+	import matplotlib
+	matplotlib.use('Agg')
 import matplotlib.pyplot as mp
 import matplotlib.cm as mpcm
 import corner as co
@@ -169,7 +173,7 @@ for i in range(n_samples):
 
 	# report progress
 	if np.mod(i, d_sample) == 0 and rank == 0:
-		print i
+		print i, '/', n_samples
 
 	# invert current sample covariance
 	inv_cov_sample = npl.inv(cov_sample)
