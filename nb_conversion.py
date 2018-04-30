@@ -218,7 +218,7 @@ else:
 		centers = np.sort(centers)
 		windices = np.full(len(wl), False, dtype=bool)
 		if rank == 0:
-			msg = 'selecting wavelengths within 2.5 Angstroms of:'
+			print 'selecting wavelengths within 2.5 Angstroms of:'
 		for i in range(len(centers)):
 			windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
 											   (wl <= centers[i] + 2.5))	
@@ -356,8 +356,8 @@ for i in range(n_samples):
 		cov_samples[:, :, i] = cov_sample
         
 	conds[i] = npl.cond(cov_sample)
-	if rank == 0:
-		print conds[i]
+	if diagnose and rank == 0:
+		print 'sampled cov mat condition number:', conds[i]
 
 	# broadcast required objects to all processes
 	if use_mpi:
@@ -369,6 +369,11 @@ mp_mean = np.mean(mean_samples[:, n_warmup:], 1)
 sdp_mean = np.std(mean_samples[:, n_warmup:], 1)
 mp_cov = np.mean(cov_samples[:, :, n_warmup:], 2)
 if rank == 0:
+
+	# save samples to file
+	with h5py.File('simple_test_samples.h5', 'w') as f:
+		f.create_dataset('mean', data=mean_samples)
+		f.create_dataset('covariance', data=cov_samples)
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
