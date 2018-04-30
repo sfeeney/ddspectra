@@ -60,6 +60,7 @@ n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_1_alpha_nonorm.h5' # filename or None
+window = True
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 
@@ -198,17 +199,60 @@ else:
 
 	# construct data vector and noise covariance: mask handled by 
 	# noise variance
-	i_min = 1770 # 1785
-	if rank == 0:
-		msg = 'selecting wavelengths in range {0:.2f}-{1:.2f} Angstroms'
-		print msg.format(full_data[i_min, 0, 0], \
-						 full_data[i_min + n_bins, 0, 0])
-	wl = full_data[i_min: i_min + n_bins, 0, 0].T - 15100.0
-	data = full_data[i_min: i_min + n_bins, 0: n_spectra, 1].T
-	var_noise = full_data[i_min: i_min + n_bins, 0: n_spectra, 2].T ** 2
-	inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
-	for i in range(n_spectra):
-		inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+	if window:
+
+		# read in window definitions. file contains elements with 
+		# positions of features within three wavelength ranges. take 
+		# windows of +/- 2.5 Angstroms about each line center; centers
+		# of 999 Angstroms should be ignored
+		wl = full_data[:, 0, 0]
+		wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
+							  skip_header=1)
+		centers = []
+		for i in range(len(wdata)):
+			#for j in range(3):
+			for j in range(2):
+				center = wdata[i][j + 1]
+				if center != 999.0:
+					centers.append(center)
+		centers = np.sort(centers)
+		windices = np.full(len(wl), False, dtype=bool)
+		if rank == 0:
+			msg = 'selecting wavelengths within 2.5 Angstroms of:'
+		for i in range(len(centers)):
+			windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
+											   (wl <= centers[i] + 2.5))	
+			if rank == 0:
+				msg = '{0:d}: {1:.2f} Angstroms'
+				print msg.format(i, centers[i])
+		'''mp.plot(wl, windices)
+		for i in range(len(centers)):
+			mp.axvline(centers[i],color='k')
+		mp.show()
+		exit()'''
+
+		# select data
+		n_bins = np.sum(windices)
+		wl = wl[windices]
+		data = full_data[windices, 0: n_spectra, 1].T
+		var_noise = full_data[windices, 0: n_spectra, 2].T ** 2
+		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
+		for i in range(n_spectra):
+			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+
+	else:
+
+		i_min = 1770 # 1785
+		if rank == 0:
+			msg = 'selecting wavelengths in range {0:.2f}-{1:.2f} Angstroms'
+			print msg.format(full_data[i_min, 0, 0], \
+							 full_data[i_min + n_bins, 0, 0])
+		wl = full_data[i_min: i_min + n_bins, 0, 0].T - 15100.0
+		data = full_data[i_min: i_min + n_bins, 0: n_spectra, 1].T
+		var_noise = full_data[i_min: i_min + n_bins, 0: n_spectra, 2].T ** 2
+		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
+		for i in range(n_spectra):
+			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
 
 	# plot if desired
 	if diagnose and rank == 0:
