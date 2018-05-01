@@ -52,6 +52,7 @@ cm = mpcm.get_cmap('plasma')
 use_mpi = True
 constrain = True
 no_s_inv = False
+sample = False
 n_bins = 100 # 7 # 50
 n_spectra = 2000
 n_samples = 1000
@@ -291,98 +292,111 @@ cov_samples = np.zeros((n_bins, n_bins, n_samples))
 conds = np.zeros(n_samples)
 
 # Gibbs sample!
-job_list = allocate_jobs(n_spectra, n_procs, rank)
-d_sample = n_samples / 10
-for i in range(n_samples):
+if sample:
 
-	# report progress
-	if np.mod(i, d_sample) == 0 and rank == 0:
-		print i, '/', n_samples
+	job_list = allocate_jobs(n_spectra, n_procs, rank)
+	d_sample = n_samples / 10
+	for i in range(n_samples):
 
-	# invert current sample covariance
-	if not no_s_inv:
-		inv_cov_sample = npl.inv(cov_sample)
+		# report progress
+		if np.mod(i, d_sample) == 0 and rank == 0:
+			print i, '/', n_samples
 
-	# calculate WF for each spectrum and use to draw true spectra
-	spectra_samples = np.zeros(data.shape)
-	for j in job_list:
+		# invert current sample covariance
+		if not no_s_inv:
+			inv_cov_sample = npl.inv(cov_sample)
 
-		# avoid S^-1?
-		if no_s_inv:
+		# calculate WF for each spectrum and use to draw true spectra
+		spectra_samples = np.zeros(data.shape)
+		for j in job_list:
 
-			# check if have spectrum-dependent noise
-			if len(cov_noise.shape) == 3:
-				cov_noise_j = cov_noise[j, :, :]
+			# avoid S^-1?
+			if no_s_inv:
+
+				# check if have spectrum-dependent noise
+				if len(cov_noise.shape) == 3:
+					cov_noise_j = cov_noise[j, :, :]
+				else:
+					cov_noise_j = np.diag(cov_noise[j, :]) # noisy mask included
+				s_n_inv = npl.inv(cov_sample + cov_noise_j) 
+				mean_wf = np.dot(cov_noise_j, \
+								 np.dot(s_n_inv, mean_sample)) + \
+						  np.dot(cov_sample, \
+								 np.dot(s_n_inv, data[j, :]))
+				cov_wf = np.dot(cov_noise_j, np.dot(s_n_inv, cov_sample))
+				cov_wf = symmetrize(cov_wf)
+
 			else:
-				cov_noise_j = np.diag(cov_noise[j, :]) # noisy mask included
-			s_n_inv = npl.inv(cov_sample + cov_noise_j) 
-			mean_wf = np.dot(cov_noise_j, \
-							 np.dot(s_n_inv, mean_sample)) + \
-					  np.dot(cov_sample, \
-							 np.dot(s_n_inv, data[j, :]))
-			cov_wf = np.dot(cov_noise_j, np.dot(s_n_inv, cov_sample))
-			cov_wf = symmetrize(cov_wf)
 
-		else:
+				# check if have spectrum-dependent noise
+				if len(inv_cov_noise.shape) == 3:
+					inv_cov_noise_j = inv_cov_noise[j, :, :]
+				else:
+					inv_cov_noise_j = np.outer(mask[j, :], mask[j, :]) * \
+									  inv_cov_noise
+				cov_wf = npl.inv(inv_cov_sample + inv_cov_noise_j)
+				cov_wf = symmetrize(cov_wf)
+				mean_wf = np.dot(cov_wf, \
+								 np.dot(inv_cov_sample, mean_sample) + \
+								 np.dot(inv_cov_noise_j, data[j, :]))
+				
+			spectra_samples[j, :] = npr.multivariate_normal(mean_wf, \
+															cov_wf, 1)
+		spectra_samples = complete_array(spectra_samples, use_mpi)
 
-			# check if have spectrum-dependent noise
-			if len(inv_cov_noise.shape) == 3:
-				inv_cov_noise_j = inv_cov_noise[j, :, :]
-			else:
-				inv_cov_noise_j = np.outer(mask[j, :], mask[j, :]) * \
-								  inv_cov_noise
-			cov_wf = npl.inv(inv_cov_sample + inv_cov_noise_j)
-			cov_wf = symmetrize(cov_wf)
-			mean_wf = np.dot(cov_wf, \
-							 np.dot(inv_cov_sample, mean_sample) + \
-							 np.dot(inv_cov_noise_j, data[j, :]))
-			
-		spectra_samples[j, :] = npr.multivariate_normal(mean_wf, \
-														cov_wf, 1)
-	spectra_samples = complete_array(spectra_samples, use_mpi)
+		# sample everything else on master process to avoid race 
+		# conditions
+		if rank == 0:
 
-	# sample everything else on master process to avoid race 
-	# conditions
+			# sample signal mean
+			mean_sample = \
+				npr.multivariate_normal(np.mean(spectra_samples, 0), \
+										cov_sample / n_spectra, 1)[0, :]
+
+			# sample signal covariance matrix
+			# NB: scipy.stats uses numpy.random seed, which i've already set
+			n_dof = n_spectra - (1 - jeffreys_prior) * (n_bins + 1)
+			sigma = np.zeros((n_bins, n_bins))
+			for j in range(n_spectra):
+				delta = spectra_samples[j, :] - mean_sample
+				sigma += np.outer(delta, delta)
+			cov_sample = sps.invwishart.rvs(n_dof, sigma, 1) + \
+						 np.diag(np.ones(n_bins) * reg_noise)
+
+			# store samples (marginalize over true spectra)
+			mean_samples[:, i] = mean_sample
+			cov_samples[:, :, i] = cov_sample
+	        
+		conds[i] = npl.cond(cov_sample)
+		if diagnose and rank == 0:
+			print 'sampled cov mat condition number:', conds[i]
+
+		# broadcast required objects to all processes
+		if use_mpi:
+			mpi.COMM_WORLD.Bcast(mean_sample, root=0)
+			mpi.COMM_WORLD.Bcast(cov_sample, root=0)
+
+	# store samples
 	if rank == 0:
+		with h5py.File('simple_test_samples.h5', 'w') as f:
+			f.create_dataset('mean', data=mean_samples)
+			f.create_dataset('covariance', data=cov_samples)
 
-		# sample signal mean
-		mean_sample = \
-			npr.multivariate_normal(np.mean(spectra_samples, 0), \
-									cov_sample / n_spectra, 1)[0, :]
+else:
 
-		# sample signal covariance matrix
-		# NB: scipy.stats uses numpy.random seed, which i've already set
-		n_dof = n_spectra - (1 - jeffreys_prior) * (n_bins + 1)
-		sigma = np.zeros((n_bins, n_bins))
-		for j in range(n_spectra):
-			delta = spectra_samples[j, :] - mean_sample
-			sigma += np.outer(delta, delta)
-		cov_sample = sps.invwishart.rvs(n_dof, sigma, 1) + \
-					 np.diag(np.ones(n_bins) * reg_noise)
-
-		# store samples (marginalize over true spectra)
-		mean_samples[:, i] = mean_sample
-		cov_samples[:, :, i] = cov_sample
-        
-	conds[i] = npl.cond(cov_sample)
-	if diagnose and rank == 0:
-		print 'sampled cov mat condition number:', conds[i]
-
-	# broadcast required objects to all processes
-	if use_mpi:
-		mpi.COMM_WORLD.Bcast(mean_sample, root=0)
-		mpi.COMM_WORLD.Bcast(cov_sample, root=0)
+	# retrieve samples
+	if rank == 0:
+		with h5py.File('simple_test_samples.h5', 'r') as f:
+			mean_samples = f['mean'][:]
+			cov_samples = f['covariance'][:]
+			n_bins, n_samples = mean_samples.shape
+			n_warmup = n_samples / 4
 
 # summarize results
 mp_mean = np.mean(mean_samples[:, n_warmup:], 1)
 sdp_mean = np.std(mean_samples[:, n_warmup:], 1)
 mp_cov = np.mean(cov_samples[:, :, n_warmup:], 2)
 if rank == 0:
-
-	# save samples to file
-	with h5py.File('simple_test_samples.h5', 'w') as f:
-		f.create_dataset('mean', data=mean_samples)
-		f.create_dataset('covariance', data=cov_samples)
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
