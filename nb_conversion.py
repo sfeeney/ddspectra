@@ -225,20 +225,25 @@ else:
 			if rank == 0:
 				msg = '{0:d}: {1:.2f} Angstroms'
 				print msg.format(i, centers[i])
-		'''mp.plot(wl, windices)
-		for i in range(len(centers)):
-			mp.axvline(centers[i],color='k')
-		mp.show()
-		exit()'''
 
 		# select data
 		n_bins = np.sum(windices)
-		wl = wl[windices]
+		#wl = wl[windices]
+		wl = np.arange(n_bins)
 		data = full_data[windices, 0: n_spectra, 1].T
 		var_noise = full_data[windices, 0: n_spectra, 2].T ** 2
 		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
 		for i in range(n_spectra):
 			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+
+		# determine the selected-data indices where the breaks are
+		dwindices = np.append(0, windices[1:].astype(int) - \
+								 windices[:-1].astype(int))
+		wendows = [x[0] for x in np.argwhere(dwindices < 0)]
+		n_windows = len(wendows)
+		wendices = []
+		for i in range(n_windows):
+			wendices.append(np.sum(windices[0: wendows[i]]))
 
 	else:
 
@@ -269,6 +274,10 @@ else:
 			mp.setp(ax.get_xticklabels(), rotation=45)
 		axes[0].set_ylabel(r'${\rm flux}$')
 		axes[1].set_ylabel(r'$\sigma_{\rm flux}$')
+		if window:
+			for i in range(n_windows):
+				axes[0].axvline(wendices[i], color='k', lw=0.5)
+				axes[1].axvline(wendices[i], color='k', lw=0.5)
 		mp.subplots_adjust(bottom=0.15)
 		mp.savefig('simple_test_apogee_inputs.pdf', \
 				   bbox_inches='tight')
