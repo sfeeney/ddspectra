@@ -209,23 +209,31 @@ else:
 		wl = full_data[:, 0, 0]
 		wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
 							  skip_header=1)
-		centers = []
+		centers, elements = [], []
 		for i in range(len(wdata)):
 			#for j in range(3):
 			for j in range(2):
 				center = wdata[i][j + 1]
 				if center != 999.0:
 					centers.append(center)
-		centers = np.sort(centers)
+					elements.append(wdata[i][0])
+		centers, elements = (list(t) for t in \
+							 zip(*sorted(zip(centers, elements))))
 		windices = np.full(len(wl), False, dtype=bool)
 		if rank == 0:
 			print 'selecting wavelengths within 2.5 Angstroms of:'
+		wlabels = [elements[0]]
 		for i in range(len(centers)):
 			windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
-											   (wl <= centers[i] + 2.5))	
+											   (wl <= centers[i] + 2.5))
 			if rank == 0:
-				msg = '{0:d}: {1:.2f} Angstroms'
+				msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
 				print msg.format(i, centers[i])
+			if i > 0:
+				if np.abs(centers[i-1] - centers[i]) < 5.0:
+					wlabels[-1] += '/' + elements[i]
+				else:
+					wlabels.append(elements[i-1])
 
 		# select data
 		n_bins = np.sum(windices)
@@ -424,6 +432,12 @@ if rank == 0:
 						mp_mean + sdp_mean, color='LightGrey', \
 						label=r'posterior $\sigma$')
 		mp.plot(wl, mp_mean, 'r', label='posterior mean')
+		if window:
+			for i in range(n_windows):
+				mp.axvline(wendices[i], color='k', lw=0.5, ls=':')
+				mp.text(wendices[i], mp.gca().get_ylim()[0], \
+						wlabels[i], fontsize=8, ha='right', \
+						va='bottom')
 	else:
 		#mp.fill_between(range(n_bins), -np.sqrt(var_noise), \
 		#				np.sqrt(var_noise), color='grey', \
@@ -435,7 +449,10 @@ if rank == 0:
 		mp.plot(mp_mean - mean, 'r', label='residual')
 	if datafile is not None:
 		mp.xlim(wl[0], wl[-1])
-		mp.xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+		if window:
+			mp.xlabel(r'${\rm index}\,(i)$')
+		else:
+			mp.xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
 		mp.ylabel(r'$\mu^{\rm post}$', fontsize=14)
 		mp.xticks(rotation=45)
 	else:
@@ -501,6 +518,14 @@ if rank == 0:
 		for i in range(n_gp_reals):
 			mp.plot(wl, gp_reals[ind_sort[i], :], color=cols[i])
 		mp.plot(wl, mp_mean, 'k')
+		if datafile is not None and window:
+			for i in range(n_windows):
+				mp.axvline(wendices[i], color='k', lw=0.5, ls=':')
+				mp.text(wendices[i], mp.gca().get_ylim()[0], \
+						wlabels[i], fontsize=8, ha='right', \
+						va='bottom')
+		if window:
+			mp.xlabel(r'${\rm index}\,(i)$')
 		mp.xlim(wl[0], wl[-1])
 		mp.xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
 		mp.ylabel(r'${\rm flux}$', fontsize=14)
@@ -536,8 +561,8 @@ if rank == 0:
 	ind_eval_sig = mp_cov_evals > np.max(mp_cov_evals) / 1.0e2
 	n_eval_sig = np.sum(ind_eval_sig)
 	print 'MP covariance rank: {:d}'.format(npl.matrix_rank(mp_cov))
-	print 'MP covariance evals:'
-	print mp_cov_evals
+	#print 'MP covariance evals:'
+	#print mp_cov_evals
 	print '{:d} significant evals'.format(n_eval_sig)
 	mp_cov_evals[~ind_eval_sig] = 0.0
 	mp_cov_low_rank = np.dot(mp_cov_evex, \
@@ -566,9 +591,35 @@ if rank == 0:
 
 	# condition numbers of sampled covariance matrices
 	mp.plot(conds)
-        if datafile is None:
-                mp.axhline(npl.cond(cov))
+	if datafile is None:
+		mp.axhline(npl.cond(cov))
 	mp.xlabel('index')
 	mp.ylabel('condition number')
 	mp.savefig('simple_test_conds.pdf', bbox_inches='tight')
 	mp.close()
+
+	# eigenvectors of interest!
+	n_plot = min(n_eval_sig, 10)
+	fig, axes = mp.subplots(n_plot, 1, figsize=(8, 3*n_plot), \
+							sharex=True)
+	for i in range(n_plot):
+		axes[i].plot(wl, mp_cov_evex[:, -1 - i])
+		if datafile is not None and window:
+			for j in range(n_windows):
+				axes[i].axvline(wendices[j], color='k', lw=0.5, \
+								ls=':')
+				axes[i].text(wendices[j], axes[i].get_ylim()[0], \
+							 wlabels[j], fontsize=8, ha='right', \
+							 va='bottom')
+		label = r'$\lambda_' + '{:d} = '.format(i) + r'{\rm ' + \
+				'{:9.2e}'.format(mp_cov_evals[-1 - i]) + r'}$'
+		axes[i].text(0.99, 0.95, label, transform=axes[i].transAxes, \
+					 fontsize=16, ha='right', va='top')
+		axes[i].set_ylabel(r'$v_{i' + '{:d}'.format(i) + r'}$', \
+						   fontsize=16)
+	axes[-1].set_xlabel(r'${\rm index},\,i$', fontsize=16)
+	mp.xlim(wl[0], wl[-1])
+	fig.subplots_adjust(hspace=0, wspace=0)
+	mp.savefig('simple_test_evex.pdf', bbox_inches='tight')
+	mp.close()
+
