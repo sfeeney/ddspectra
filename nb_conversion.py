@@ -68,11 +68,11 @@ cm = mpcm.get_cmap('plasma')
 use_mpi = True
 constrain = True
 no_s_inv = False
-sample = True
+sample = False
 n_bins = 7 # 50
 n_spectra = 2000
 n_classes = 2
-n_samples = 100 # 1000
+n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
@@ -109,6 +109,7 @@ if datafile is None:
 	wl = np.zeros(n_bins)
 	mean = np.zeros((n_bins, n_classes))
 	cov = np.zeros((n_bins, n_bins, n_classes))
+	cor = np.zeros((n_bins, n_bins, n_classes))
 	class_ids = np.zeros(n_spectra, dtype=int)
 	if rank == 0:
 
@@ -146,6 +147,11 @@ if datafile is None:
 				evex = u
 				evals = np.linspace(1.0, n_bins, n_bins) ** -5
 				cov[:, :, k] = np.dot(np.dot(evex, np.diag(evals)), evex.T)
+				for i in range(n_bins):
+					for j in range(n_bins):
+						cor[i, j, k] = cov[i, j, k] / \
+									   np.sqrt(cov[i, i, k] * \
+											   cov[j, j, k])
 				
 				# generate a mean vector
 				#mean[:, k] = k + 1.0 + 4.0 * (npr.rand(n_bins) - 0.5)
@@ -217,6 +223,7 @@ if datafile is None:
 		mpi.COMM_WORLD.Bcast(wl, root=0)
 		mpi.COMM_WORLD.Bcast(mean, root=0)
 		mpi.COMM_WORLD.Bcast(cov, root=0)
+		mpi.COMM_WORLD.Bcast(cor, root=0)
 		mpi.COMM_WORLD.Bcast(class_ids, root=0)
 
 else:
@@ -501,10 +508,19 @@ else:
 mp_mean = np.zeros((n_bins, n_classes))
 sdp_mean = np.zeros((n_bins, n_classes))
 mp_cov = np.zeros((n_bins, n_bins, n_classes))
+mp_cor = np.zeros((n_bins, n_bins, n_classes))
 for k in range(n_classes):
 	mp_mean[:, k] = np.mean(mean_samples[:, k, n_warmup:], -1)
 	sdp_mean[:, k] = np.std(mean_samples[:, k, n_warmup:], -1)
 	mp_cov[:, :, k] = np.mean(cov_samples[:, :, k, n_warmup:], -1)
+	for i in range(n_bins):
+		for j in range(n_bins):
+			mp_cor[i, j, k] = \
+				np.mean(cov_samples[i, j, k, n_warmup:] / \
+						np.sqrt(cov_samples[i, i, k, n_warmup:] * \
+								cov_samples[j, j, k, n_warmup:]))
+
+# plots
 if rank == 0:
 
 	# selection of trace plots
@@ -621,6 +637,58 @@ if rank == 0:
 									   labeltop='off', right='off', \
 									   left='off', labelleft='off')
 	mp.savefig('simple_test_covariance.pdf', bbox_inches='tight')
+	mp.close()
+
+	# compare correlations
+	if datafile is not None:
+		fig, axes = mp.subplots(n_classes, 1, \
+								figsize=(8, 5 * n_classes))	
+		if n_classes == 1:
+			axes = axis_to_axes(axes)
+		for k in range(n_classes):
+			cax = axes[k].matshow(mp_cor[:, :, k], vmin=-1.0, \
+								  vmax=1.0, cmap=mpcm.seismic, \
+								  interpolation = 'nearest')
+			ax_pos = axes[k].get_position()
+			cbar_ax = fig.add_axes([ax_pos.x0 + 0.04, ax_pos.y0, \
+									0.02, ax_pos.y1 - ax_pos.y0])
+			fig.colorbar(cax, cax=cbar_ax)
+			#cbar = fig.colorbar(cax)
+			axes[k].set_title(r'Mean Posterior')
+			axes[k].tick_params(axis='both', which='both', \
+								bottom='off', top='off', \
+								labeltop='off', right='off', \
+								left='off', labelleft='off')
+	else:
+		fig, axes = mp.subplots(n_classes, 3, \
+								figsize=(16, 5 * n_classes))	
+		if n_classes == 1:
+			axes = axis_to_axes(axes)
+		for k in range(n_classes):
+			axes[k, 0].matshow(cor[:, :, k], vmin=-1.0, \
+							   vmax=1.0, cmap=mpcm.seismic, \
+							   interpolation='nearest')
+			cax = axes[k, 1].matshow(mp_cor[:, :, k], vmin=-1.0, \
+									 vmax=1.0, cmap=mpcm.seismic, \
+									 interpolation = 'nearest')
+			axes[k, 2].matshow(mp_cor[:, :, k] - cor[:, :, k], \
+							   vmin=-1.0, vmax=1.0, \
+							   cmap=mpcm.seismic, \
+							   interpolation='nearest')
+			fig.subplots_adjust(right=0.8)
+			ax_pos = axes[k, 2].get_position()
+			cbar_ax = fig.add_axes([0.84, ax_pos.y0, 0.02, \
+									ax_pos.y1 - ax_pos.y0])
+			fig.colorbar(cax, cax=cbar_ax)
+			axes[k, 0].set_title(r'Ground Truth')
+			axes[k, 1].set_title(r'Mean Posterior')
+			axes[k, 2].set_title(r'Residual')
+			for i in range(len(axes)):
+				axes[k, i].tick_params(axis='both', which='both', \
+									   bottom='off', top='off', \
+									   labeltop='off', right='off', \
+									   left='off', labelleft='off')
+	mp.savefig('simple_test_correlation.pdf', bbox_inches='tight')
 	mp.close()
 
 	# plot some realizations of the mean-posterior Gaussian process
