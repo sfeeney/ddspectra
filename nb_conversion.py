@@ -2,6 +2,7 @@ import numpy as np
 import numpy.random as npr
 import numpy.linalg as npl
 import scipy.stats as sps
+import scipy.linalg.lapack as spl
 import h5py
 import os
 if 'DISPLAY' not in os.environ.keys():
@@ -9,6 +10,7 @@ if 'DISPLAY' not in os.environ.keys():
 	matplotlib.use('Agg')
 import matplotlib.pyplot as mp
 import matplotlib.cm as mpcm
+import matplotlib.axes as mpa
 import corner as co
 
 def symmetrize(m):
@@ -27,13 +29,27 @@ def allocate_jobs(n_jobs, n_procs=1, rank=0):
 
 def complete_array(target_distrib, use_mpi=False):
 	if use_mpi:
-		target = np.zeros(target_distrib.shape)
-		mpi.COMM_WORLD.Reduce(target_distrib, target, op=mpi.SUM, \
-							  root=0)
-		#mpi.COMM_WORLD.Allreduce(target_distrib, target, op=mpi.SUM)
+		target = np.zeros(target_distrib.shape, \
+						  dtype=target_distrib.dtype)
+		#mpi.COMM_WORLD.Reduce(target_distrib, target, op=mpi.SUM, \
+		#					  root=0)
+		mpi.COMM_WORLD.Allreduce(target_distrib, target, op=mpi.SUM)
 	else:
 		target = target_distrib
 	return target
+
+def axis_to_axes(axis, transpose=False):
+	if isinstance(axis, mpa.Axes):
+		axes = np.empty(shape=(1), dtype=mpa.Axes)
+		axes[0] = axis
+	else:
+		if transpose:
+			axes = np.empty(shape=(len(axis), 1), dtype=object)
+			axes[:, 0] = axis
+		else:
+			axes = np.empty(shape=(1, len(axis)), dtype=object)
+			axes[0, :] = axis
+	return axes
 
 
 # @TODO LIST
@@ -52,15 +68,16 @@ cm = mpcm.get_cmap('plasma')
 use_mpi = True
 constrain = True
 no_s_inv = False
-sample = False
-n_bins = 100 # 7 # 50
+sample = True
+n_bins = 7 # 50
 n_spectra = 2000
-n_samples = 1000
+n_classes = 2
+n_samples = 100 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
-datafile = 'data/redclump_1_alpha_nonorm.h5' # filename or None
+datafile = None # 'data/redclump_1_alpha_nonorm.h5' # filename or None
 window = True
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
@@ -90,8 +107,9 @@ if datafile is None:
 	else:
 		inv_cov_noise = np.zeros((n_bins, n_bins))
 	wl = np.zeros(n_bins)
-	mean = np.zeros(n_bins)
-	cov = np.zeros((n_bins, n_bins))
+	mean = np.zeros((n_bins, n_classes))
+	cov = np.zeros((n_bins, n_bins, n_classes))
+	class_ids = np.zeros(n_spectra, dtype=int)
 	if rank == 0:
 
 		# additional setup: use BW setup or test input matching prior
@@ -116,35 +134,44 @@ if datafile is None:
 
 		else:
 
-			# generate a covariance matrix
-			norm_vars = npr.randn(n_bins)
-			in_mat = np.zeros((n_bins, n_bins))
-			for i in range(n_bins):
-				in_mat[:, i] = norm_vars
-			u, s, v = npl.svd(in_mat)
-			evex = u
-			evals = np.linspace(1.0, n_bins, n_bins) ** -5
-			#evals = np.linspace(1.0, n_bins, n_bins) ** -2
-			#evals = np.linspace(1.0, n_bins, n_bins)
-			cov = np.dot(np.dot(evex, np.diag(evals)), evex.T)
-			#cov = np.diag(np.diag(cov))
-			evals, evex = npl.eigh(cov)
+			# loop over classes
+			for k in range(n_classes):
 
-			# generate a mean vector
-			mean = 1.0 + 4.0 * (npr.rand(n_bins) - 0.5)
-		print 'input covariance condition number ', npl.cond(cov)
+				# generate a covariance matrix
+				norm_vars = npr.randn(n_bins)
+				in_mat = np.zeros((n_bins, n_bins))
+				for i in range(n_bins):
+					in_mat[:, i] = norm_vars
+				u, s, v = npl.svd(in_mat)
+				evex = u
+				evals = np.linspace(1.0, n_bins, n_bins) ** -5
+				cov[:, :, k] = np.dot(np.dot(evex, np.diag(evals)), evex.T)
+				
+				# generate a mean vector
+				#mean[:, k] = k + 1.0 + 4.0 * (npr.rand(n_bins) - 0.5)
+				mean[:, k] = 1.0 + 4.0 * (npr.rand(n_bins) - 0.5)
+
+		for k in range(n_classes):
+			print 'input covmat {:d} condition number '.format(k), \
+				  npl.cond(cov[:, :, k])
 
 		# optionally plot test inputs
 		if diagnose:
-			mp.imshow(cov, interpolation='nearest')
-			mp.show()
-			mp.plot(mean)
-			mp.show()
+			for k in range(n_classes):
+				mp.imshow(cov[:, :, k], interpolation='nearest')
+				mp.show()
+				mp.plot(mean[:, k])
+				mp.show()
 
-		# generate signals from this model
-		spectra_true = npr.multivariate_normal(mean, cov, n_spectra)
+		# assign class membership and generate signals from this model
+		class_ids = npr.choice(n_classes, n_spectra)
+		spectra_true = np.zeros((n_spectra, n_bins))
+		for k in range(n_classes):
+			in_class_k = (class_ids == k)
+			spectra_true[in_class_k, :] = \
+				npr.multivariate_normal(mean[:, k], cov[:, :, k], \
+										np.sum(in_class_k))
 		if diagnose:
-			print spectra_true.shape
 			for i in range(n_spectra):
 				mp.plot(spectra_true[i, :], 'k-', alpha=0.3)
 			mp.show()
@@ -152,7 +179,7 @@ if datafile is None:
 		# generate noise and mask
 		var_noise = npr.uniform(0.0, 0.2, n_bins)
 		cov_noise = np.diag(var_noise)
-		inv_cov_noise = npl.inv(cov_noise)      # inverseNoiseCov
+		inv_cov_noise = npl.inv(cov_noise)	  # inverseNoiseCov
 		noise = npr.multivariate_normal(np.zeros(n_bins), cov_noise, n_spectra)
 		mask = np.reshape(npr.choice(2, n_bins * n_spectra, p=[0.14, 0.86]), \
 						  spectra_true.shape).astype(float)
@@ -190,6 +217,7 @@ if datafile is None:
 		mpi.COMM_WORLD.Bcast(wl, root=0)
 		mpi.COMM_WORLD.Bcast(mean, root=0)
 		mpi.COMM_WORLD.Bcast(cov, root=0)
+		mpi.COMM_WORLD.Bcast(class_ids, root=0)
 
 else:
 
@@ -293,16 +321,31 @@ else:
 		mp.show()
 
 # initial conditions for sampler
-mean_sample = np.mean(data, 0)          # signalpriormean
-cov_sample = np.cov(data, rowvar=False) # SignalCovariance
-mean_samples = np.zeros((n_bins, n_samples))
-cov_samples = np.zeros((n_bins, n_bins, n_samples))
-conds = np.zeros(n_samples)
+class_id_sample = np.zeros(n_spectra, dtype=int)
+if n_classes > 1:
+	if rank == 0:
+		class_id_sample = npr.choice(n_classes, n_spectra)
+	if use_mpi:
+		mpi.COMM_WORLD.Bcast(class_id_sample, root=0)
+mean_sample = np.zeros((n_bins, n_classes))
+cov_sample = np.zeros((n_bins, n_bins, n_classes))
+spectra_samples = np.zeros((n_spectra, n_bins))
+for k in range(n_classes):
+	in_class_k = (class_ids == k)
+	mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
+	cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
+for j in range(n_spectra):
+	#spectra_samples[j, :] = mean_sample[:, class_id_sample[j]]
+	spectra_samples[j, :] = data[j, :]
+mean_samples = np.zeros((n_bins, n_classes, n_samples))
+cov_samples = np.zeros((n_bins, n_bins, n_classes, n_samples))
+conds = np.zeros((n_classes, n_samples))
 
 # Gibbs sample!
 if sample:
 
 	job_list = allocate_jobs(n_spectra, n_procs, rank)
+	class_job_list = allocate_jobs(n_classes, n_procs, rank)
 	d_sample = n_samples / 10
 	for i in range(n_samples):
 
@@ -310,18 +353,48 @@ if sample:
 		if np.mod(i, d_sample) == 0 and rank == 0:
 			print i, '/', n_samples
 
-		# invert current sample covariance
+		# invert current sample covariance and obtain determinant. 
+		# use lapack directly for this to avoid two N^3 operations
 		if not no_s_inv:
-			inv_cov_sample = npl.inv(cov_sample)
+			inv_cov_sample = np.zeros((n_bins, n_bins, n_classes))
+			sqrt_cov_det = np.zeros(n_classes)
+			for k in range(n_classes):
+				#inv_cov_sample[:, :, k] = npl.inv(cov_sample[:, :, k])
+				chol_k = spl.dpotrf(cov_sample[:, :, k])[0]
+				inv_cov_sample[:, :, k] = spl.dpotri(chol_k)[0]
+				for j in range(n_bins):
+					inv_cov_sample[j:, j, k] = inv_cov_sample[j, j:, k]
+				sqrt_cov_det[k] = np.product(np.diagonal(chol_k))
+
+		# reassign classes
+		class_id_sample = np.zeros(n_spectra, dtype=int)
+		if n_classes > 1:
+			for j in job_list:
+				class_probs = np.zeros(n_classes)
+				for k in range(n_classes):
+					delta = spectra_samples[j, :] - mean_sample[:, k]
+					chisq = np.dot(delta, \
+								   np.dot(inv_cov_sample[:, :, k], \
+								   		  delta))
+					class_probs[k] = np.exp(-0.5 * chisq) / \
+									 sqrt_cov_det[k]
+				class_probs /= np.sum(class_probs)
+				class_id_sample[j] = npr.choice(n_classes, \
+												p=class_probs)
+			class_id_sample = complete_array(class_id_sample, use_mpi)
 
 		# calculate WF for each spectrum and use to draw true spectra
 		spectra_samples = np.zeros(data.shape)
 		for j in job_list:
 
+			# class id
+			k = class_id_sample[j]
+
 			# avoid S^-1?
 			if no_s_inv:
 
 				# check if have spectrum-dependent noise
+				# @TODO: update to support multiple classes
 				if len(cov_noise.shape) == 3:
 					cov_noise_j = cov_noise[j, :, :]
 				else:
@@ -337,54 +410,78 @@ if sample:
 			else:
 
 				# check if have spectrum-dependent noise
+				# @TODO: can i speed up this inversion given i already 
+				#        have the cholesky decomp of S?
 				if len(inv_cov_noise.shape) == 3:
 					inv_cov_noise_j = inv_cov_noise[j, :, :]
 				else:
 					inv_cov_noise_j = np.outer(mask[j, :], mask[j, :]) * \
 									  inv_cov_noise
-				cov_wf = npl.inv(inv_cov_sample + inv_cov_noise_j)
+				cov_wf = npl.inv(inv_cov_sample[:, :, k] + \
+								 inv_cov_noise_j)
 				cov_wf = symmetrize(cov_wf)
 				mean_wf = np.dot(cov_wf, \
-								 np.dot(inv_cov_sample, mean_sample) + \
+								 np.dot(inv_cov_sample[:, :, k], \
+								 		mean_sample[:, k]) + \
 								 np.dot(inv_cov_noise_j, data[j, :]))
 				
 			spectra_samples[j, :] = npr.multivariate_normal(mean_wf, \
 															cov_wf, 1)
 		spectra_samples = complete_array(spectra_samples, use_mpi)
 
-		# sample everything else on master process to avoid race 
-		# conditions
-		if rank == 0:
+		# only class parameters require sampling; can do one class per 
+		# mpi process. first sample means
+		mean_sample = np.zeros((n_bins, n_classes))
+		for k in class_job_list:
+
+			# class members
+			in_class_k = (class_ids == k)
+			n_spectra_k = np.sum(in_class_k)
 
 			# sample signal mean
-			mean_sample = \
-				npr.multivariate_normal(np.mean(spectra_samples, 0), \
-										cov_sample / n_spectra, 1)[0, :]
+			#mean_sample[:, k] = \
+			#	npr.multivariate_normal(np.mean(spectra_samples[:], 0), \
+			#							cov_sample / n_spectra, 1)[0, :]
+			mean_mean_k = np.mean(spectra_samples[in_class_k, :], 0)
+			mean_sample[:, k] = \
+				npr.multivariate_normal(mean_mean_k, \
+										cov_sample[:, :, k] / \
+										n_spectra_k, 1)[0, :]
+
+		mean_sample = complete_array(mean_sample, use_mpi)
+
+		# now sample covariances
+		cov_sample = np.zeros((n_bins, n_bins, n_classes))
+		for k in class_job_list:
+
+			# class members
+			in_class_k = (class_ids == k)
+			n_spectra_k = np.sum(in_class_k)
 
 			# sample signal covariance matrix
 			# NB: scipy.stats uses numpy.random seed, which i've already set
-			n_dof = n_spectra - (1 - jeffreys_prior) * (n_bins + 1)
+			n_dof = n_spectra_k - (1 - jeffreys_prior) * (n_bins + 1)
 			sigma = np.zeros((n_bins, n_bins))
 			for j in range(n_spectra):
-				delta = spectra_samples[j, :] - mean_sample
-				sigma += np.outer(delta, delta)
-			cov_sample = sps.invwishart.rvs(n_dof, sigma, 1) + \
-						 np.diag(np.ones(n_bins) * reg_noise)
+				if in_class_k[j]:
+					delta = spectra_samples[j, :] - mean_sample[:, k]
+					sigma += np.outer(delta, delta)
+			cov_sample[:, :, k] = sps.invwishart.rvs(n_dof, sigma, 1) + \
+								  np.diag(np.ones(n_bins) * reg_noise)
 
-			# store samples (marginalize over true spectra)
-			mean_samples[:, i] = mean_sample
-			cov_samples[:, :, i] = cov_sample
-	        
-		conds[i] = npl.cond(cov_sample)
+		cov_sample = complete_array(cov_sample, use_mpi)
+		
+		# store samples (marginalize over true spectra)
+		mean_samples[:, :, i] = mean_sample
+		cov_samples[:, :, :, i] = cov_sample
+		for k in range(n_classes):
+			conds[k, i] = npl.cond(cov_sample[:, :, k])
+
+		# report if desired
 		if diagnose and rank == 0:
-			print 'sampled cov mat condition number:', conds[i]
+			print 'sampled cov mat condition numbers:', conds[:, i]
 
-		# broadcast required objects to all processes
-		if use_mpi:
-			mpi.COMM_WORLD.Bcast(mean_sample, root=0)
-			mpi.COMM_WORLD.Bcast(cov_sample, root=0)
-
-	# store samples
+	# store samples on disk
 	if rank == 0:
 		with h5py.File('simple_test_samples.h5', 'w') as f:
 			f.create_dataset('mean', data=mean_samples)
@@ -397,229 +494,262 @@ else:
 		with h5py.File('simple_test_samples.h5', 'r') as f:
 			mean_samples = f['mean'][:]
 			cov_samples = f['covariance'][:]
-			n_bins, n_samples = mean_samples.shape
+			n_bins, n_classes, n_samples = mean_samples.shape
 			n_warmup = n_samples / 4
 
 # summarize results
-mp_mean = np.mean(mean_samples[:, n_warmup:], 1)
-sdp_mean = np.std(mean_samples[:, n_warmup:], 1)
-mp_cov = np.mean(cov_samples[:, :, n_warmup:], 2)
+mp_mean = np.zeros((n_bins, n_classes))
+sdp_mean = np.zeros((n_bins, n_classes))
+mp_cov = np.zeros((n_bins, n_bins, n_classes))
+for k in range(n_classes):
+	mp_mean[:, k] = np.mean(mean_samples[:, k, n_warmup:], -1)
+	sdp_mean[:, k] = np.std(mean_samples[:, k, n_warmup:], -1)
+	mp_cov[:, :, k] = np.mean(cov_samples[:, :, k, n_warmup:], -1)
 if rank == 0:
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
-	axes[0].plot(mean_samples[0, :])
-	axes[1].plot(mean_samples[n_bins / 2, :])
-	axes[2].plot(mean_samples[-1, :])
+	for k in range(n_classes):
+		axes[0].plot(mean_samples[0, k, :])
+		axes[1].plot(mean_samples[n_bins / 2, k, :])
+		axes[2].plot(mean_samples[-1, k, :])
 	axes[2].set_xlabel('sample')
 	axes[1].set_ylabel('mean')
 	fig.subplots_adjust(hspace=0, wspace=0)
 	mp.savefig('simple_test_trace.pdf', bbox_inches='tight')
 	mp.close()
 
-	# compare true and sampled means
-	if diagnose:
-		for i in range(n_samples):
-			mp.plot(mean_samples[:, i], 'k-', alpha=0.3)
+	# compare means with reference to noise and posterior standard 
+	# deviations
+	fig, axes = mp.subplots(n_classes, 1, \
+							figsize=(8, 5 * n_classes), \
+							sharex=True)
+	if n_classes == 1:
+		axes = axis_to_axes(axes)
+	for k in range(n_classes):
 		if datafile is None:
-			mp.plot(mean, 'r-', alpha=1.0)
-		mp.plot(mp_mean, 'y--', alpha=1.0)
-		mp.show()
-
-	# as above but with reference to noise and posterior standard deviations
-	if datafile is not None:
-		mp.fill_between(wl, mp_mean - sdp_mean, \
-						mp_mean + sdp_mean, color='LightGrey', \
-						label=r'posterior $\sigma$')
-		mp.plot(wl, mp_mean, 'r', label='posterior mean')
-		if window:
-			for i in range(n_windows):
-				mp.axvline(wendices[i], color='k', lw=0.5, ls=':')
-				mp.text(wendices[i], mp.gca().get_ylim()[0], \
-						wlabels[i], fontsize=8, ha='right', \
-						va='bottom')
-	else:
-		#mp.fill_between(range(n_bins), -np.sqrt(var_noise), \
-		#				np.sqrt(var_noise), color='grey', \
-		#				label=r'noise $\sigma$')
-		mp.fill_between(range(n_bins), mp_mean - mean - sdp_mean, \
-						mp_mean - mean + sdp_mean, color='LightGrey', \
-						label=r'posterior $\sigma$')
-		mp.plot([0, n_bins - 1], [0.0, 0.0], 'k--')
-		mp.plot(mp_mean - mean, 'r', label='residual')
-	if datafile is not None:
-		mp.xlim(wl[0], wl[-1])
-		if window:
-			mp.xlabel(r'${\rm index}\,(i)$')
+			res = mp_mean[:, k] - mean[:, k]
+			label = 'residual'
 		else:
-			mp.xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-		mp.ylabel(r'$\mu^{\rm post}$', fontsize=14)
-		mp.xticks(rotation=45)
+			res = mp_mean[:, k]
+			label = 'posterior mean'
+		axes[k].fill_between(wl, res - sdp_mean[:, k], \
+							 res + sdp_mean[:, k], \
+							 color='LightGrey', \
+							 label=r'posterior $\sigma$')
+		axes[k].plot(wl, res, 'r', label=label)
+		if datafile is not None:
+			if window:
+				for i in range(n_windows):
+					axes[k].axvline(wendices[i], color='k', lw=0.5, \
+									ls=':')
+					axes[k].text(wendices[i], mp.gca().get_ylim()[0], \
+								 wlabels[i], fontsize=8, ha='right', \
+								 va='bottom')
+			axes[k].set_ylabel(r'$\mu^{\rm post}$', fontsize=14)
+		else:
+			axes[k].plot([wl[0], wl[-1]], [0.0, 0.0], 'k--')
+			axes[k].set_ylabel(r'$\mu_i^{\rm post}-\mu_i^{\rm true}$', \
+							   fontsize=14)
+		axes[k].legend(loc='upper right')
+	if datafile is not None:
+		axes[-1].set_xlim(wl[0], wl[-1])
+		if window:
+			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
+		else:
+			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+		axes[-1].set_xticks(rotation=45)
 	else:
-		mp.xlabel(r'index ($i$)', fontsize=14)
-		mp.ylabel(r'$\mu_i^{\rm post}-\mu_i^{\rm true}$', fontsize=14)
-	mp.legend(loc='upper right')
+		axes[-1].set_xlabel(r'index ($i$)', fontsize=14)
+	fig.subplots_adjust(hspace=0, wspace=0)
 	mp.savefig('simple_test_mean.pdf', bbox_inches='tight')
 	mp.close()
 
 	# compare covariances
 	if datafile is not None:
-		min_cov, max_cov = np.min(mp_cov), np.max(mp_cov)
-		ext_cov = np.max((np.abs(min_cov), max_cov))
-		fig, ax = mp.subplots(1, 1, figsize=(8, 5))
-		cax = ax.matshow(mp_cov, vmin=-ext_cov, vmax=ext_cov, \
-						 cmap=mpcm.seismic, interpolation = 'nearest')
-		cbar = fig.colorbar(cax)
-		ax.set_title(r'Mean Posterior')
-		ax.tick_params(axis='both', which='both', bottom='off', \
-					   top='off', labeltop='off', right='off', \
-					   left='off', labelleft='off')
-	else:
-		min_cov, max_cov = np.min(cov), np.max(cov)
-		ext_cov = np.max((np.abs(min_cov), max_cov))
-		fig, axes = mp.subplots(1, 3, figsize=(16, 5))
-		axes[0].matshow(cov, vmin=-ext_cov, vmax=ext_cov, \
-						cmap=mpcm.seismic, interpolation='nearest')
-		cax = axes[1].matshow(mp_cov, vmin=-ext_cov, vmax=ext_cov, \
-							  cmap=mpcm.seismic, interpolation = 'nearest')
-		axes[2].matshow(mp_cov - cov, vmin=-ext_cov, vmax=ext_cov, \
-						cmap=mpcm.seismic, interpolation='nearest')
-		fig.subplots_adjust(right=0.8)
-		cbar_ax = fig.add_axes([0.84, 0.18, 0.02, 0.64])
-		fig.colorbar(cax, cax=cbar_ax)
-		axes[0].set_title(r'Ground Truth')
-		axes[1].set_title(r'Mean Posterior')
-		axes[2].set_title(r'Residual')
-		for i in range(len(axes)):
-			axes[i].tick_params(axis='both', which='both', bottom='off', \
-								top='off', labeltop='off', right='off', \
+		fig, axes = mp.subplots(n_classes, 1, \
+								figsize=(8, 5 * n_classes))	
+		if n_classes == 1:
+			axes = axis_to_axes(axes)
+		for k in range(n_classes):
+			min_cov, max_cov = np.min(mp_cov[:, :, k]), \
+							   np.max(mp_cov[:, :, k])
+			ext_cov = np.max((np.abs(min_cov), max_cov))
+			cax = axes[k].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
+								  vmax=ext_cov, cmap=mpcm.seismic, \
+								  interpolation = 'nearest')
+			ax_pos = axes[k].get_position()
+			cbar_ax = fig.add_axes([ax_pos.x0 + 0.04, ax_pos.y0, \
+									0.02, ax_pos.y1 - ax_pos.y0])
+			fig.colorbar(cax, cax=cbar_ax)
+			#cbar = fig.colorbar(cax)
+			axes[k].set_title(r'Mean Posterior')
+			axes[k].tick_params(axis='both', which='both', \
+								bottom='off', top='off', \
+								labeltop='off', right='off', \
 								left='off', labelleft='off')
+	else:
+		fig, axes = mp.subplots(n_classes, 3, \
+								figsize=(16, 5 * n_classes))	
+		if n_classes == 1:
+			axes = axis_to_axes(axes)
+		for k in range(n_classes):
+			min_cov, max_cov = np.min(cov[:, :, k]), \
+							   np.max(cov[:, :, k])
+			ext_cov = np.max((np.abs(min_cov), max_cov))
+			axes[k, 0].matshow(cov[:, :, k], vmin=-ext_cov, \
+							   vmax=ext_cov, cmap=mpcm.seismic, \
+							   interpolation='nearest')
+			cax = axes[k, 1].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
+									 vmax=ext_cov, cmap=mpcm.seismic, \
+									 interpolation = 'nearest')
+			axes[k, 2].matshow(mp_cov[:, :, k] - cov[:, :, k], \
+							   vmin=-ext_cov, vmax=ext_cov, \
+							   cmap=mpcm.seismic, \
+							   interpolation='nearest')
+			fig.subplots_adjust(right=0.8)
+			ax_pos = axes[k, 2].get_position()
+			cbar_ax = fig.add_axes([0.84, ax_pos.y0, 0.02, \
+									ax_pos.y1 - ax_pos.y0])
+			fig.colorbar(cax, cax=cbar_ax)
+			axes[k, 0].set_title(r'Ground Truth')
+			axes[k, 1].set_title(r'Mean Posterior')
+			axes[k, 2].set_title(r'Residual')
+			for i in range(len(axes)):
+				axes[k, i].tick_params(axis='both', which='both', \
+									   bottom='off', top='off', \
+									   labeltop='off', right='off', \
+									   left='off', labelleft='off')
 	mp.savefig('simple_test_covariance.pdf', bbox_inches='tight')
 	mp.close()
 
 	# plot some realizations of the mean-posterior Gaussian process
 	if n_gp_reals > 0:
 
-		# pick some samples at which to generate realizations
-		#gp_reals = npr.multivariate_normal(mp_mean, mp_cov, n_gp_reals)
-		i_sample = npr.randint(n_warmup, n_samples, n_gp_reals)
-		gp_reals = np.zeros((n_gp_reals, n_bins))
-		for i in range(n_gp_reals):
-			gp_reals[i, :] = npr.multivariate_normal(mean_samples[:, i], \
-													 cov_samples[:, :, i], \
-													 1)
-		ind_sort = np.argsort(gp_reals[:, -1])
+		# one subfigure per class
+		fig, axes = mp.subplots(n_classes, 1, \
+								figsize=(8, 5 * n_classes), \
+								sharex=True)	
+		if n_classes == 1:
+			axes = axis_to_axes(axes)
+		for k in range(n_classes):
 
-		# plot, colouring in order of increasing first-bin value to aid
-		# interpretation of correlations
-		cols = [cm(x) for x in np.linspace(0.1, 0.9, n_gp_reals)]
-		mp.fill_between(range(n_bins), mp_mean - sdp_mean, \
-						mp_mean + sdp_mean, color='LightGrey')
-		for i in range(n_gp_reals):
-			mp.plot(wl, gp_reals[ind_sort[i], :], color=cols[i])
-		mp.plot(wl, mp_mean, 'k')
+			# pick some samples at which to generate realizations
+			i_sample = npr.randint(n_warmup, n_samples, n_gp_reals)
+			gp_reals = np.zeros((n_gp_reals, n_bins))
+			for i in range(n_gp_reals):
+				gp_reals[i, :] = npr.multivariate_normal(mean_samples[:, k, i], \
+														 cov_samples[:, :, k, i], \
+														 1)
+			ind_sort = np.argsort(gp_reals[:, 0])
+
+			# plot, colouring in order of increasing first-bin value to aid
+			# interpretation of correlations
+			cols = [cm(x) for x in np.linspace(0.1, 0.9, n_gp_reals)]
+			for i in range(n_gp_reals):
+				axes[k].plot(wl, gp_reals[ind_sort[i], :], color=cols[i])
+			axes[k].plot(wl, mp_mean[:, k], 'k')
+			if datafile is not None and window:
+				for i in range(n_windows):
+					axes[k].axvline(wendices[i], color='k', lw=0.5, ls=':')
+					axes[k].text(wendices[i], mp.gca().get_ylim()[0], \
+								 wlabels[i], fontsize=8, ha='right', \
+								 va='bottom')
+			axes[k].set_ylabel(r'${\rm flux}$', fontsize=14)
+
+		axes[-1].set_xlim(wl[0], wl[-1])
 		if datafile is not None and window:
-			for i in range(n_windows):
-				mp.axvline(wendices[i], color='k', lw=0.5, ls=':')
-				mp.text(wendices[i], mp.gca().get_ylim()[0], \
-						wlabels[i], fontsize=8, ha='right', \
-						va='bottom')
-		if window:
-			mp.xlabel(r'${\rm index}\,(i)$')
-		mp.xlim(wl[0], wl[-1])
-		mp.xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-		mp.ylabel(r'${\rm flux}$', fontsize=14)
-		mp.xticks(rotation=45)
+			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+			axes[-1].set_xticks(rotation=45)
+		else:
+			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
 		mp.savefig('simple_test_gp_realizations.pdf', bbox_inches='tight')
 		mp.close()
 
-	# takes forever if too many bins...
-	if n_bins < 10:
-
-		# check correlations between binned mean estimates
-		labels = [r'$\mu_{' + '{:d}'.format(i) + '}$' for i in range(n_bins)]
-		fig = co.corner(mean_samples.T, bins=10, labels=labels, \
-						plot_density=False, plot_contours=False, \
-						no_fill_contours=True)
-		for i in range(n_bins):
-			for j in range(i):
-
-				a_ind = i * n_bins + j
-				fig.axes[a_ind].axhline(mean[i], \
-										color='red', ls=':', \
-										lw = 1.5)
-			for j in range(i + 1):
-				a_ind = i * n_bins + j
-				fig.axes[a_ind].axvline(mean[j], \
-										color='red', ls=':', \
-										lw = 1.5)
-		mp.savefig('simple_test_mean_posterior.pdf')
-		mp.close()
-
-	# fun with ranks of covariance matrices!
-	mp_cov_evals, mp_cov_evex = npl.eigh(mp_cov)
-	ind_eval_sig = mp_cov_evals > np.max(mp_cov_evals) / 1.0e2
-	n_eval_sig = np.sum(ind_eval_sig)
-	print 'MP covariance rank: {:d}'.format(npl.matrix_rank(mp_cov))
-	#print 'MP covariance evals:'
-	#print mp_cov_evals
-	print '{:d} significant evals'.format(n_eval_sig)
-	mp_cov_evals[~ind_eval_sig] = 0.0
-	mp_cov_low_rank = np.dot(mp_cov_evex, \
-							 np.dot(np.diag(mp_cov_evals), \
-							 		mp_cov_evex.T))
-	ext_cov = np.max((np.abs(mp_cov), mp_cov))
-	fig, axes = mp.subplots(1, 3, figsize=(16, 5))
-	axes[0].matshow(mp_cov, vmin=-ext_cov, vmax=ext_cov, \
-					cmap=mpcm.seismic, interpolation='nearest')
-	cax = axes[1].matshow(mp_cov_low_rank, vmin=-ext_cov, vmax=ext_cov, \
-						  cmap=mpcm.seismic, interpolation = 'nearest')
-	axes[2].matshow(mp_cov_low_rank - mp_cov, vmin=-ext_cov, vmax=ext_cov, \
-					cmap=mpcm.seismic, interpolation='nearest')
-	fig.subplots_adjust(right=0.8)
-	cbar_ax = fig.add_axes([0.84, 0.18, 0.02, 0.64])
-	fig.colorbar(cax, cax=cbar_ax)
-	axes[0].set_title(r'Mean Posterior')
-	axes[1].set_title('Mean Posterior (rank {:d})'.format(n_eval_sig))
-	axes[2].set_title(r'Residual')
-	for i in range(len(axes)):
-		axes[i].tick_params(axis='both', which='both', bottom='off', \
-							top='off', labeltop='off', right='off', \
-							left='off', labelleft='off')
+	# fun with ranks and eigenvalues of covariance matrices!
+	n_eval_sig = np.zeros(n_classes, dtype=int)
+	mp_cov_evals = np.zeros((n_bins, n_classes))
+	mp_cov_evex = np.zeros((n_bins, n_bins, n_classes))
+	fig, axes = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))	
+	if n_classes == 1:
+		axes = axis_to_axes(axes)
+	for k in range(n_classes):
+		mp_cov_evals[:, k], mp_cov_evex[:, :, k] = npl.eigh(mp_cov[:, :, k])
+		ind_eval_sig = mp_cov_evals[:, k] > \
+					   np.max(mp_cov_evals[:, k]) / 1.0e2
+		n_eval_sig[k] = np.sum(ind_eval_sig)
+		print 'MP covariance {:d} '.format(k) + \
+			  'rank: {:d}'.format(npl.matrix_rank(mp_cov[:, :, k]))
+		print '{:d} significant evals'.format(n_eval_sig[k])
+		mp_cov_evals[~ind_eval_sig, k] = 0.0
+		mp_cov_low_rank = np.dot(mp_cov_evex[:, :, k], \
+								 np.dot(np.diag(mp_cov_evals[:, k]), \
+								 		mp_cov_evex[:, :, k].T))
+		ext_cov = np.max((np.abs(mp_cov[:, :, k]), mp_cov[:, :, k]))
+		axes[k, 0].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
+						   vmax=ext_cov, cmap=mpcm.seismic, \
+						   interpolation='nearest')
+		cax = axes[k, 1].matshow(mp_cov_low_rank, vmin=-ext_cov, \
+								 vmax=ext_cov, cmap=mpcm.seismic, \
+								 interpolation = 'nearest')
+		axes[k, 2].matshow(mp_cov_low_rank - mp_cov[:, :, k], \
+						   vmin=-ext_cov, vmax=ext_cov, \
+						   cmap=mpcm.seismic, interpolation='nearest')
+		fig.subplots_adjust(right=0.8)
+		ax_pos = axes[k, 2].get_position()
+		cbar_ax = fig.add_axes([0.84, ax_pos.y0, 0.02, \
+								ax_pos.y1 - ax_pos.y0])
+		fig.colorbar(cax, cax=cbar_ax)
+		axes[k, 0].set_title(r'Mean Posterior')
+		axes[k, 1].set_title('Mean Posterior (rank ' + \
+							 '{:d})'.format(n_eval_sig[k]))
+		axes[k, 2].set_title(r'Residual')
+		for i in range(len(axes)):
+			axes[k, i].tick_params(axis='both', which='both', \
+								   bottom='off', top='off', \
+								   labeltop='off', right='off', \
+								   left='off', labelleft='off')
 	mp.savefig('simple_test_low_rank_covariance.pdf', bbox_inches='tight')
 	mp.close()
 
 	# condition numbers of sampled covariance matrices
-	mp.plot(conds)
-	if datafile is None:
-		mp.axhline(npl.cond(cov))
-	mp.xlabel('index')
-	mp.ylabel('condition number')
-	mp.savefig('simple_test_conds.pdf', bbox_inches='tight')
-	mp.close()
+	if sample:
+		for k in range(n_classes):
+			mp.semilogy(conds[k, :])
+			if datafile is None:
+				mp.axhline(npl.cond(cov[:, :, k]))
+		mp.xlabel('index')
+		mp.ylabel('condition number')
+		mp.savefig('simple_test_conds.pdf', bbox_inches='tight')
+		mp.close()
 
 	# eigenvectors of interest!
-	n_plot = min(n_eval_sig, 10)
-	fig, axes = mp.subplots(n_plot, 1, figsize=(8, 3*n_plot), \
-							sharex=True)
-	for i in range(n_plot):
-		axes[i].plot(wl, mp_cov_evex[:, -1 - i])
-		if datafile is not None and window:
-			for j in range(n_windows):
-				axes[i].axvline(wendices[j], color='k', lw=0.5, \
-								ls=':')
-				axes[i].text(wendices[j], axes[i].get_ylim()[0], \
-							 wlabels[j], fontsize=8, ha='right', \
-							 va='bottom')
-		label = r'$\lambda_' + '{:d} = '.format(i) + r'{\rm ' + \
-				'{:9.2e}'.format(mp_cov_evals[-1 - i]) + r'}$'
-		axes[i].text(0.99, 0.95, label, transform=axes[i].transAxes, \
-					 fontsize=16, ha='right', va='top')
-		axes[i].set_ylabel(r'$v_{i' + '{:d}'.format(i) + r'}$', \
-						   fontsize=16)
-	axes[-1].set_xlabel(r'${\rm index},\,i$', fontsize=16)
-	mp.xlim(wl[0], wl[-1])
-	fig.subplots_adjust(hspace=0, wspace=0)
+	n_plot_max = min(np.max(n_eval_sig), 10)
+	fig, axes = mp.subplots(n_plot_max, n_classes, \
+							figsize=(8 * n_classes, 3 * n_plot_max), \
+							sharex=True)	
+	if n_classes == 1:
+		axes = axis_to_axes(axes, True)
+	for k in range(n_classes):
+		n_plot = min(n_eval_sig[k], 10)
+		for i in range(n_plot):
+			axes[i, k].plot(wl, mp_cov_evex[:, -1 - i, k])
+			if datafile is not None and window:
+				for j in range(n_windows):
+					axes[i, k].axvline(wendices[j], color='k', lw=0.5, \
+									   ls=':')
+					axes[i, k].text(wendices[j], axes[i, k].get_ylim()[0], \
+									wlabels[j], fontsize=8, ha='right', \
+									va='bottom')
+			label = r'$\lambda_' + '{:d} = '.format(i) + r'{\rm ' + \
+					'{:9.2e}'.format(mp_cov_evals[-1 - i, k]) + r'}$'
+			axes[i, k].text(0.99, 0.95, label, transform=axes[i, k].transAxes, \
+						 fontsize=16, ha='right', va='top')
+			axes[i, k].set_ylabel(r'$v_{i' + '{:d}'.format(i) + r'}$', \
+								  fontsize=16)
+		axes[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
+		axes[-1, k].set_xlim(wl[0], wl[-1])
+	fig.subplots_adjust(hspace=0)
 	mp.savefig('simple_test_evex.pdf', bbox_inches='tight')
 	mp.close()
 
