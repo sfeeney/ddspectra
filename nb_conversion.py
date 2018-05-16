@@ -11,7 +11,7 @@ if 'DISPLAY' not in os.environ.keys():
 import matplotlib.pyplot as mp
 import matplotlib.cm as mpcm
 import matplotlib.axes as mpa
-import corner as co
+#import corner as co
 
 def symmetrize(m):
 	return (m + m.T) / 2.0
@@ -71,13 +71,13 @@ no_s_inv = False
 sample = False
 n_bins = 7 # 50
 n_spectra = 2000
-n_classes = 2
+n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
-datafile = None # 'data/redclump_1_alpha_nonorm.h5' # filename or None
+datafile = 'data/redclump_1_alpha_nonorm.h5' # filename or None
 window = True
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
@@ -231,7 +231,6 @@ else:
 	# read in data
 	f = h5py.File('data/redclump_1_alpha_nonorm.h5','r')
 	full_data = f['dataset_1'][:]
-	f.close()
 
 	# construct data vector and noise covariance: mask handled by 
 	# noise variance
@@ -338,7 +337,7 @@ mean_sample = np.zeros((n_bins, n_classes))
 cov_sample = np.zeros((n_bins, n_bins, n_classes))
 spectra_samples = np.zeros((n_spectra, n_bins))
 for k in range(n_classes):
-	in_class_k = (class_ids == k)
+	in_class_k = (class_id_sample == k)
 	mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
 	cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
 for j in range(n_spectra):
@@ -574,7 +573,7 @@ if rank == 0:
 			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
 		else:
 			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-		axes[-1].set_xticks(rotation=45)
+			mp.setp(axes[-1].get_xticklabels(), rotation=45)
 	else:
 		axes[-1].set_xlabel(r'index ($i$)', fontsize=14)
 	fig.subplots_adjust(hspace=0, wspace=0)
@@ -727,10 +726,10 @@ if rank == 0:
 
 		axes[-1].set_xlim(wl[0], wl[-1])
 		if datafile is not None and window:
-			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-			axes[-1].set_xticks(rotation=45)
-		else:
 			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
+		else:
+			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+			mp.setp(axes[-1].get_xticklabels(), rotation=45)
 		mp.savefig('simple_test_gp_realizations.pdf', bbox_inches='tight')
 		mp.close()
 
@@ -795,7 +794,7 @@ if rank == 0:
 	n_plot_max = min(np.max(n_eval_sig), 10)
 	fig, axes = mp.subplots(n_plot_max, n_classes, \
 							figsize=(8 * n_classes, 3 * n_plot_max), \
-							sharex=True)	
+							sharex=True)
 	if n_classes == 1:
 		axes = axis_to_axes(axes, True)
 	for k in range(n_classes):
@@ -820,4 +819,87 @@ if rank == 0:
 	fig.subplots_adjust(hspace=0)
 	mp.savefig('simple_test_evex.pdf', bbox_inches='tight')
 	mp.close()
+
+	# conditional variance plots: which features best predict others?
+	# this might produce the most gigantic plots ever...
+	if datafile is not None and window:
+		fig, axes = mp.subplots(n_windows, n_classes, \
+								figsize=(8 * n_classes, 3 * n_windows), \
+								sharex=True)
+		if n_classes == 1:
+			axes = axis_to_axes(axes, True)
+		for k in range(n_classes):
+
+			for i in range(n_windows):
+
+				# find indices
+				if i == 0:
+					inds_i = (wl < wendices[i])
+					inds_o = (wl >= wendices[i])
+				else:
+					inds_i = (wl >= wendices[i - 1]) & (wl < wendices[i])
+					inds_o = (wl < wendices[i - 1]) | (wl >= wendices[i])
+				n_i = np.sum(inds_i)
+				n_o = np.sum(inds_o)
+
+				# construct submatrices
+				s_ii = np.zeros((n_i, n_i))
+				s_io = np.zeros((n_i, n_o))
+				s_oo = np.zeros((n_o, n_o))
+				n = 0
+				for j in range(n_bins):
+					if inds_i[j]:
+						s_ii[n, :] = mp_cov[j, inds_i, k]
+						s_io[n, :] = mp_cov[j, inds_o, k]
+						n += 1
+					else:
+						s_oo[j - n, :] = mp_cov[j, inds_o, k]
+
+				# calculate and plot covariance of conditional distribution
+				s_ii_inv = npl.inv(s_ii)
+				cond_cov = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
+				axes[i, k].plot(wl[inds_o], np.sqrt(np.diag(cond_cov)))
+				axes[i, k].set_ylabel(r'$\sigma$')
+
+			ylim = [ax.get_ylim() for ax in axes[:, k]]
+			ylim = [np.min(ylim[:][0]), np.max(ylim[:][1])]
+			for i in range(n_windows):
+				axes[i, k].set_ylim(ylim)
+				for n in range(n_windows):
+					axes[i, k].axvline(wendices[n], color='k', lw=0.5, ls=':')
+					axes[i, k].text(wendices[n], axes[i, k].get_ylim()[0], \
+									wlabels[n], fontsize=8, ha='right', \
+									va='bottom')
+		axes[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
+		axes[-1, k].set_xlim(wl[0], wl[-1])
+
+		fig.subplots_adjust(hspace=0)
+		mp.savefig('simple_test_conditional_stddevs.pdf', bbox_inches='tight')
+		mp.close()
+
+		# @TODO:
+		# fix plotting range. maybe calculate all matrices first to get range?
+		# or just oplot the labels afterwards so we can readjust all plots?
+		# don't plot gaps
+
+		'''
+		print np.sum(mp_cov), np.sum(s_ii) + 2.0 * np.sum(s_io) + np.sum(s_oo)
+		print s_ii.shape, s_io.shape, s_oo.shape
+		print mp_cov[-1, :]
+		print s_ii[-1, :]
+		print s_io[-1, :]
+		test = npl.inv(mp_cov[:, :, 0])
+		s_ii_inv = npl.inv(s_ii)
+		s_oo_inv = npl.inv(s_oo)
+		c_1 = s_ii - np.dot(s_io, np.dot(s_oo_inv, s_io.T))
+		c_2 = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
+		c_1_inv = npl.inv(c_1)
+		c_2_inv = npl.inv(c_2)
+		s_io_inv = -np.dot(s_ii_inv, np.dot(s_io, c_2_inv))
+		print np.sum(test), np.sum(c_1_inv) + 2.0 * np.sum(s_io_inv) + np.sum(c_2_inv)
+		print test[-1, :]
+		print c_1_inv[-1, :]
+		print s_io_inv[-1, :]
+		'''
+
 
