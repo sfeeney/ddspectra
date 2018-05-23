@@ -51,6 +51,25 @@ def axis_to_axes(axis, transpose=False):
 			axes[0, :] = axis
 	return axes
 
+def pretty_hist(data, bins, axis, color, density=False, fill=True, \
+				ls='-', zorder=None):
+
+	hist, bin_edges = np.histogram(data, bins=bins, density=density)
+	bins_to_plot = np.append(bins, bins[-1])
+	hist_to_plot = np.append(np.insert(hist, 0, 0.0), 0.0)
+	if zorder is not None:
+		axis.step(bins_to_plot, hist_to_plot, where='pre', \
+				  color=color, linestyle=ls, zorder=zorder)
+		if fill:
+			axis.fill_between(bins_to_plot, hist_to_plot, \
+							  color=color, alpha=0.7, step='pre', \
+							  zorder=zorder)
+	else:
+		axis.step(bins_to_plot, hist_to_plot, where='pre', \
+				  color=color, linestyle=ls)
+		if fill:
+			axis.fill_between(bins_to_plot, hist_to_plot, \
+							  color=color, alpha=0.7, step='pre')
 
 # @TODO LIST
 #  - impose low rank on covariance
@@ -68,6 +87,7 @@ use_mpi = True
 constrain = True
 no_s_inv = False
 sample = False
+precompress = True
 n_bins = 7 # 50
 n_spectra = 2000
 n_classes = 1
@@ -80,6 +100,7 @@ datafile = 'data/redclump_1_alpha_nonorm.h5' # filename or None
 window = True
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
+eval_thresh = 1.0e-2
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -337,6 +358,17 @@ else:
 		mp.savefig('simple_test_apogee_inputs.pdf', \
 				   bbox_inches='tight')
 		mp.show()
+
+# perform a PCA of the input data
+if precompress:
+	import sklearn.decomposition as skd
+	pca = skd.PCA()
+	pca.fit(data)
+	d_evals = pca.explained_variance_[::-1]
+	d_evex = pca.components_[::-1, :]
+	ind_pc_sig = d_evals > \
+				 np.max(d_evals) * eval_thresh
+	n_pc_sig = np.sum(ind_pc_sig)
 
 # initial conditions for sampler
 class_id_sample = np.zeros(n_spectra, dtype=int)
@@ -751,26 +783,36 @@ if rank == 0:
 	mp_cov_evex = np.zeros((n_bins, n_bins, n_classes))
 	fig, axes = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
 	fig_e, axes_e = mp.subplots(1, 2, figsize=(16, 5))
+	if precompress:
+		fig_p, axes_p = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
 	if n_classes == 1:
 		axes = axis_to_axes(axes)
+		axes_p = axis_to_axes(axes_p)
 	cols = [cm(x) for x in np.linspace(0.1, 0.9, n_classes)]
+	if precompress:
+		axes_e[0].semilogy(d_evals, color='k', ls='--', \
+						   label='data covariance')
+		eval_bins = np.logspace(np.log10(d_evals[0]), \
+								np.log10(d_evals[-1]), 20)
+		pretty_hist(d_evals, eval_bins, axes_e[1], 'k', \
+					fill=False, ls='--')
+		cov_trunc_pca = \
+			np.dot(d_evex[-n_pc_sig:, :].T, \
+				   np.dot(np.diag(d_evals[-n_pc_sig:]), \
+						  d_evex[-n_pc_sig:, :]))
 	for k in range(n_classes):
 
 		# calculate spectral decomposition and plot evals
 		mp_cov_evals[:, k], mp_cov_evex[:, :, k] = \
 			npl.eigh(mp_cov[:, :, k])
 		ind_eval_sig = mp_cov_evals[:, k] > \
-					   np.max(mp_cov_evals[:, k]) / 1.0e2
+					   np.max(mp_cov_evals[:, k]) * eval_thresh
 		n_eval_sig[k] = np.sum(ind_eval_sig)
 		eval_bins = np.logspace(np.log10(mp_cov_evals[0, k]), \
 								np.log10(mp_cov_evals[-1, k]), 20)
-		if n_classes > 1:
-			axes_e[0].semilogy(mp_cov_evals[:, k], color=cols[k], \
-							   label='class {:d}'.format(k + 1))
-		else:
-			axes_e[0].semilogy(mp_cov_evals[:, k], color=cols[k])
-		axes_e[1].hist(mp_cov_evals[:, k], bins=eval_bins, log=False, \
-					   ec=cols[k], fc=cols[k], alpha=0.7)
+		axes_e[0].semilogy(mp_cov_evals[:, k], color=cols[k], \
+						   label='class {:d}'.format(k + 1))
+		pretty_hist(mp_cov_evals[:, k], eval_bins, axes_e[1], cols[k])
 		axes_e[1].set_xscale('log')
 		print 'MP covariance {:d} '.format(k) + \
 			  'rank: {:d}'.format(npl.matrix_rank(mp_cov[:, :, k]))
@@ -808,9 +850,37 @@ if rank == 0:
 								   labeltop='off', right='off', \
 								   left='off', labelleft='off')
 
+		# plot comparison between PCA and MAP covariances
+		if precompress:
+			#ext_cov = np.max((np.abs(np.min(cov_trunc_pca)), \
+			#				  np.max(cov_trunc_pca)))
+			axes_p[k, 0].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
+							   vmax=ext_cov, cmap=mpcm.seismic, \
+							   interpolation='nearest')
+			cax = axes_p[k, 1].matshow(cov_trunc_pca, vmin=-ext_cov, \
+									 vmax=ext_cov, cmap=mpcm.seismic, \
+									 interpolation='nearest')
+			axes_p[k, 2].matshow(mp_cov_low_rank - cov_trunc_pca, \
+							   vmin=-ext_cov, vmax=ext_cov, \
+							   cmap=mpcm.seismic, interpolation='nearest')
+			axes_p[k, 1].set_title(r'Truncated PCA')
+			fig_p.subplots_adjust(right=0.8)
+			ax_pos = axes_p[k, 2].get_position()
+			cbar_ax = fig_p.add_axes([0.84, ax_pos.y0, 0.02, \
+									ax_pos.y1 - ax_pos.y0])
+			fig_p.colorbar(cax, cax=cbar_ax)
+			axes_p[k, 0].set_title(r'Mean Posterior')
+			axes_p[k, 1].set_title('Truncated PCA (rank ' + \
+								   '{:d})'.format(n_pc_sig))
+			axes_p[k, 2].set_title(r'Residual')
+			for i in range(len(axes_p)):
+				axes_p[k, i].tick_params(axis='both', which='both', \
+									   bottom='off', top='off', \
+									   labeltop='off', right='off', \
+									   left='off', labelleft='off')
+
 	# finish plots
-	if n_classes > 1:
-		axes_e[0].legend(loc='upper left')
+	axes_e[0].legend(loc='upper left')
 	axes_e[0].set_xlabel(r'${\rm index }\,i$')
 	axes_e[0].set_ylabel(r'$\lambda_i$')
 	axes_e[0].set_xlim(0, n_bins)
@@ -820,6 +890,9 @@ if rank == 0:
 	fig_e.savefig('simple_test_evals.pdf', bbox_inches='tight')
 	mp.close(fig)
 	mp.close(fig_e)
+	if precompress:
+		fig_p.savefig('simple_test_pca_vs_map.pdf', bbox_inches='tight')
+		mp.close(fig_p)
 
 	# condition numbers of sampled covariance matrices
 	if sample:
