@@ -53,7 +53,6 @@ def axis_to_axes(axis, transpose=False):
 
 
 # @TODO LIST
-#  - multiple classes
 #  - impose low rank on covariance
 
 # plot settings
@@ -750,22 +749,41 @@ if rank == 0:
 	n_eval_sig = np.zeros(n_classes, dtype=int)
 	mp_cov_evals = np.zeros((n_bins, n_classes))
 	mp_cov_evex = np.zeros((n_bins, n_bins, n_classes))
-	fig, axes = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))	
+	fig, axes = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
+	fig_e, axes_e = mp.subplots(1, 2, figsize=(16, 5))
 	if n_classes == 1:
 		axes = axis_to_axes(axes)
+	cols = [cm(x) for x in np.linspace(0.1, 0.9, n_classes)]
 	for k in range(n_classes):
-		mp_cov_evals[:, k], mp_cov_evex[:, :, k] = npl.eigh(mp_cov[:, :, k])
+
+		# calculate spectral decomposition and plot evals
+		mp_cov_evals[:, k], mp_cov_evex[:, :, k] = \
+			npl.eigh(mp_cov[:, :, k])
 		ind_eval_sig = mp_cov_evals[:, k] > \
 					   np.max(mp_cov_evals[:, k]) / 1.0e2
 		n_eval_sig[k] = np.sum(ind_eval_sig)
+		eval_bins = np.logspace(np.log10(mp_cov_evals[0, k]), \
+								np.log10(mp_cov_evals[-1, k]), 20)
+		if n_classes > 1:
+			axes_e[0].semilogy(mp_cov_evals[:, k], color=cols[k], \
+							   label='class {:d}'.format(k + 1))
+		else:
+			axes_e[0].semilogy(mp_cov_evals[:, k], color=cols[k])
+		axes_e[1].hist(mp_cov_evals[:, k], bins=eval_bins, log=False, \
+					   ec=cols[k], fc=cols[k], alpha=0.7)
+		axes_e[1].set_xscale('log')
 		print 'MP covariance {:d} '.format(k) + \
 			  'rank: {:d}'.format(npl.matrix_rank(mp_cov[:, :, k]))
 		print '{:d} significant evals'.format(n_eval_sig[k])
+
+		# restrict rank to most significant evex
 		mp_cov_evals[~ind_eval_sig, k] = 0.0
 		mp_cov_low_rank = np.dot(mp_cov_evex[:, :, k], \
 								 np.dot(np.diag(mp_cov_evals[:, k]), \
 								 		mp_cov_evex[:, :, k].T))
 		ext_cov = np.max((np.abs(mp_cov[:, :, k]), mp_cov[:, :, k]))
+
+		# plot comparison between full and low-rank covariances
 		axes[k, 0].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
 						   vmax=ext_cov, cmap=mpcm.seismic, \
 						   interpolation='nearest')
@@ -789,8 +807,19 @@ if rank == 0:
 								   bottom='off', top='off', \
 								   labeltop='off', right='off', \
 								   left='off', labelleft='off')
-	mp.savefig('simple_test_low_rank_covariance.pdf', bbox_inches='tight')
-	mp.close()
+
+	# finish plots
+	if n_classes > 1:
+		axes_e[0].legend(loc='upper left')
+	axes_e[0].set_xlabel(r'${\rm index }\,i$')
+	axes_e[0].set_ylabel(r'$\lambda_i$')
+	axes_e[0].set_xlim(0, n_bins)
+	axes_e[1].set_xlabel(r'$\lambda_i$')
+	axes_e[1].set_ylabel(r'$N(\lambda_i)$')
+	fig.savefig('simple_test_low_rank_covariance.pdf', bbox_inches='tight')
+	fig_e.savefig('simple_test_evals.pdf', bbox_inches='tight')
+	mp.close(fig)
+	mp.close(fig_e)
 
 	# condition numbers of sampled covariance matrices
 	if sample:
