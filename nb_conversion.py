@@ -229,8 +229,23 @@ if datafile is None:
 else:
 
 	# read in data
-	f = h5py.File('data/redclump_1_alpha_nonorm.h5','r')
-	full_data = f['dataset_1'][:]
+	n_to_load = n_spectra
+	n_file = 1
+	full_data = None
+	while n_to_load > 0:
+		f = h5py.File('data/redclump_' + \
+					  '{:d}_alpha_nonorm.h5'.format(n_file), 'r')
+		file_data = f['dataset_1'][:]
+		n_in_file = file_data.shape[1]
+		to_load = np.arange(n_in_file) < n_to_load
+		if full_data is None:
+			wl = file_data[:, 0, 0]
+			full_data = file_data[:, to_load, 1:]
+		else:
+			full_data = np.append(full_data, \
+								  file_data[:, to_load, 1:], 1)
+		n_to_load -= n_in_file
+		n_file += 1
 
 	# construct data vector and noise covariance: mask handled by 
 	# noise variance
@@ -240,7 +255,6 @@ else:
 		# positions of features within three wavelength ranges. take 
 		# windows of +/- 2.5 Angstroms about each line center; centers
 		# of 999 Angstroms should be ignored
-		wl = full_data[:, 0, 0]
 		wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
 							  skip_header=1)
 		centers, elements = [], []
@@ -271,10 +285,9 @@ else:
 
 		# select data
 		n_bins = np.sum(windices)
-		#wl = wl[windices]
 		wl = np.arange(n_bins)
-		data = full_data[windices, 0: n_spectra, 1].T
-		var_noise = full_data[windices, 0: n_spectra, 2].T ** 2
+		data = full_data[windices, 0: n_spectra, 0].T
+		var_noise = full_data[windices, 0: n_spectra, 1].T ** 2
 		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
 		for i in range(n_spectra):
 			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
@@ -287,17 +300,17 @@ else:
 		wendices = []
 		for i in range(n_windows):
 			wendices.append(np.sum(windices[0: wendows[i]]))
+		n_in_bin = np.append(wendices[0], np.diff(wendices))
 
 	else:
 
 		i_min = 1770 # 1785
 		if rank == 0:
 			msg = 'selecting wavelengths in range {0:.2f}-{1:.2f} Angstroms'
-			print msg.format(full_data[i_min, 0, 0], \
-							 full_data[i_min + n_bins, 0, 0])
-		wl = full_data[i_min: i_min + n_bins, 0, 0].T - 15100.0
-		data = full_data[i_min: i_min + n_bins, 0: n_spectra, 1].T
-		var_noise = full_data[i_min: i_min + n_bins, 0: n_spectra, 2].T ** 2
+			print msg.format(wl[i_min], wl[i_min + n_bins])
+		wl = wl[i_min: i_min + n_bins] - 15100.0
+		data = full_data[i_min: i_min + n_bins, 0: n_spectra, 0].T
+		var_noise = full_data[i_min: i_min + n_bins, 0: n_spectra, 1].T ** 2
 		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
 		for i in range(n_spectra):
 			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
@@ -823,13 +836,25 @@ if rank == 0:
 	# conditional variance plots: which features best predict others?
 	# this might produce the most gigantic plots ever...
 	if datafile is not None and window:
+
+		n_ext = 10
 		fig, axes = mp.subplots(n_windows, n_classes, \
 								figsize=(8 * n_classes, 3 * n_windows), \
 								sharex=True)
+		fig_e, axes_e = mp.subplots(n_ext / 2, n_classes, \
+									figsize=(8 * n_classes, 3 * n_ext / 2), \
+									sharex=True)
+		fig_d, axes_d = mp.subplots(n_classes, 1, \
+									figsize=(8, 5 * n_classes), \
+									sharex=True)
 		if n_classes == 1:
 			axes = axis_to_axes(axes, True)
+			axes_e = axis_to_axes(axes_e, True)
+			axes_d = axis_to_axes(axes_d)
 		for k in range(n_classes):
 
+			inf_gain = np.zeros(n_windows ** 2)
+			stddev = np.zeros((n_bins, n_bins))
 			for i in range(n_windows):
 
 				# find indices
@@ -858,9 +883,41 @@ if rank == 0:
 				# calculate and plot covariance of conditional distribution
 				s_ii_inv = npl.inv(s_ii)
 				cond_cov = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
+				stddev[i, inds_o] = np.sqrt(np.diag(cond_cov))
 				axes[i, k].plot(wl[inds_o], np.sqrt(np.diag(cond_cov)))
 				axes[i, k].set_ylabel(r'$\sigma$')
 
+				# also plot information gain for each window from each
+				# other window
+				others = [w for w in range(n_windows) if w != i]
+				for w in others:
+
+					# find indices
+					inds_w = np.full(n_o, False, dtype=bool)
+					if i < w:
+						inds_w_min = np.sum(n_in_bin[0: w]) - n_in_bin[i]
+					else:
+						inds_w_min = np.sum(n_in_bin[0: w])
+					inds_w_max = inds_w_min + n_in_bin[w]
+					inds_w[inds_w_min: inds_w_max] = True
+					n_w = n_in_bin[w]
+
+					# construct submatrices
+					s_ww = np.zeros((n_w, n_w))
+					cond_cov_ww = np.zeros((n_w, n_w))
+					n = 0
+					for j in range(n_o):
+						if inds_w[j]:
+							s_ww[n, :] = s_oo[j, inds_w]
+							cond_cov_ww[n, :] = cond_cov[j, inds_w]
+							n += 1
+
+					# calculate information gain
+					inf_gain[w * n_windows + i] = \
+						np.log(npl.det(cond_cov_ww)) - \
+						np.log(npl.det(s_ww))
+
+			# plot information gains
 			ylim = [ax.get_ylim() for ax in axes[:, k]]
 			ylim = [np.min(ylim[:][0]), np.max(ylim[:][1])]
 			for i in range(n_windows):
@@ -870,36 +927,93 @@ if rank == 0:
 					axes[i, k].text(wendices[n], axes[i, k].get_ylim()[0], \
 									wlabels[n], fontsize=8, ha='right', \
 									va='bottom')
+			ind_plot = np.arange(n_windows ** 2)
+			axes_d[k].scatter(ind_plot, inf_gain, marker='+')
+			i_mig = np.argsort(inf_gain)
+			ind_ext = (inf_gain < inf_gain[i_mig[n_ext]])
+			axes_d[k].scatter(ind_plot[ind_ext], \
+							  inf_gain[ind_ext], marker='+', \
+							  color='r')
+			for i in range(n_windows):
+				axes_d[k].axvline(i * n_windows, color='k', lw=0.5)
+			xticks = [(i + 0.5) * n_windows for i in range(n_windows)]
+			xticklabels = ['{:d}'.format(i) for i in range(n_windows)]
+			axes_d[k].set_xticks(xticks)
+			axes_d[k].set_xticklabels(wlabels, fontdict={'fontsize':11})
+			axes_d[k].tick_params(axis='x', which='both', length=0)
+			axes_d[k].set_xlim(0, n_windows ** 2)
+			y_min = np.min(inf_gain)
+			y_max = np.max(inf_gain[inf_gain < 0])
+			axes_d[k].set_ylim(y_min - np.abs(y_max) * 0.1, y_max)
+			axes_d[k].set_ylabel(r'$\log|C_{ii|j}| - \log|C_{ii}|$')
+
+			# plot std devs of pairs with most information gain
+			test = np.arange(n_windows) * n_windows
+			for n in range(n_ext / 2):
+				cols = ['b', 'g']
+				for m in range(2):
+					j = np.searchsorted(test, i_mig[n * 2 + m], side='right') - 1
+					i = i_mig[n * 2 + m] - j * n_windows
+					label = r'$\sqrt{{\rm diag}\left(C_{\rm X|' + \
+							wlabels[i] + r'}\right)}$'
+					ind_0 = np.where(stddev[i, :] == 0)[0]
+					axes_e[n, k].plot(wl[0: ind_0[0]], stddev[i, 0: ind_0[0]], \
+									  color=cols[m], label=label)
+					axes_e[n, k].plot(wl[ind_0[-1] + 1:], \
+									  stddev[i, ind_0[-1] + 1:], \
+									  color=cols[m])
+			ylim = [ax.get_ylim() for ax in axes_e[:, k]]
+			ylim = [np.min(ylim[:][0]), np.max(ylim[:][1])]
+			for i in range(n_ext / 2):
+				axes_e[i, k].set_ylim(ylim)
+				axes_e[i, k].set_ylabel(r'$\sigma$')
+				yticks = axes_e[i, k].yaxis.get_major_ticks()
+				yticks[0].label1.set_visible(False)
+				axes_e[i, k].legend(loc='upper right', fontsize=12)
+				axes_e[i, k].tick_params(axis='x', which='both', length=0)
+				jj = np.searchsorted(test, i_mig[i * 2], side='right') - 1
+				ii = i_mig[i * 2] - jj * n_windows
+				if ii > jj:
+					if jj > 0:
+						axes_e[i, k].axvspan(0, wendices[jj - 1], \
+											 alpha=0.2, color='gray')
+					if ii != jj + 1:
+						axes_e[i, k].axvspan(wendices[jj], \
+											 wendices[ii - 1], \
+											 alpha=0.2, color='gray')
+					axes_e[i, k].axvspan(wendices[ii], wl[-1], \
+										 alpha=0.2, color='gray')
+				else:
+					if ii > 0:
+						axes_e[i, k].axvspan(0, wendices[ii - 1], \
+											 alpha=0.2, color='gray')
+					if jj != ii + 1:
+						axes_e[i, k].axvspan(wendices[ii], \
+											 wendices[jj - 1], \
+											 alpha=0.2, color='gray')
+					axes_e[i, k].axvspan(wendices[jj], wl[-1], \
+										 alpha=0.2, color='gray')
+				for n in range(n_windows):
+					x_text = n_in_bin[n] / 2.0
+					if n > 0:
+						x_text += wendices[n - 1]
+					axes_e[i, k].text(x_text, ylim[0], \
+									  wlabels[n], fontsize=8, \
+									  ha='center', va='bottom')
+					axes_e[i, k].axvline(wendices[n], color='k', \
+										 lw=0.5, ls=':')
+
+		# finish and save plots
 		axes[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
 		axes[-1, k].set_xlim(wl[0], wl[-1])
-
+		axes_e[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
+		axes_e[-1, k].set_xlim(wl[0], wl[-1])
 		fig.subplots_adjust(hspace=0)
-		mp.savefig('simple_test_conditional_stddevs.pdf', bbox_inches='tight')
-		mp.close()
-
-		# @TODO:
-		# fix plotting range. maybe calculate all matrices first to get range?
-		# or just oplot the labels afterwards so we can readjust all plots?
-		# don't plot gaps
-
-		'''
-		print np.sum(mp_cov), np.sum(s_ii) + 2.0 * np.sum(s_io) + np.sum(s_oo)
-		print s_ii.shape, s_io.shape, s_oo.shape
-		print mp_cov[-1, :]
-		print s_ii[-1, :]
-		print s_io[-1, :]
-		test = npl.inv(mp_cov[:, :, 0])
-		s_ii_inv = npl.inv(s_ii)
-		s_oo_inv = npl.inv(s_oo)
-		c_1 = s_ii - np.dot(s_io, np.dot(s_oo_inv, s_io.T))
-		c_2 = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
-		c_1_inv = npl.inv(c_1)
-		c_2_inv = npl.inv(c_2)
-		s_io_inv = -np.dot(s_ii_inv, np.dot(s_io, c_2_inv))
-		print np.sum(test), np.sum(c_1_inv) + 2.0 * np.sum(s_io_inv) + np.sum(c_2_inv)
-		print test[-1, :]
-		print c_1_inv[-1, :]
-		print s_io_inv[-1, :]
-		'''
-
-
+		fig.savefig('simple_test_conditional_stddevs.pdf', bbox_inches='tight')
+		mp.close(fig)
+		fig_d.subplots_adjust(hspace=0)
+		fig_d.savefig('simple_test_conditional_inf_gain.pdf', bbox_inches='tight')
+		mp.close(fig_d)
+		fig_e.subplots_adjust(hspace=0)
+		fig_e.savefig('simple_test_most_correlated_stddevs.pdf', bbox_inches='tight')
+		mp.close(fig_e)
