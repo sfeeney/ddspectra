@@ -544,7 +544,7 @@ if sample:
 		for k in class_job_list:
 
 			# class members
-			in_class_k = (class_ids == k)
+			in_class_k = (class_id_sample == k)
 			n_spectra_k = np.sum(in_class_k)
 
 			# sample signal mean
@@ -564,7 +564,7 @@ if sample:
 		for k in class_job_list:
 
 			# class members
-			in_class_k = (class_ids == k)
+			in_class_k = (class_id_sample == k)
 			n_spectra_k = np.sum(in_class_k)
 
 			# sample signal covariance matrix
