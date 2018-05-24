@@ -89,14 +89,14 @@ no_s_inv = False
 sample = False
 precompress = True
 n_bins = 7 # 50
-n_spectra = 2000
+n_spectra = 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
-datafile = 'data/redclump_1_alpha_nonorm.h5' # filename or None
+datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = True
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
@@ -253,8 +253,17 @@ else:
 	n_file = 1
 	full_data = None
 	while n_to_load > 0:
-		f = h5py.File('data/redclump_' + \
-					  '{:d}_alpha_nonorm.h5'.format(n_file), 'r')
+		datafile_n = datafile.format(n_file)
+		try:
+			f = h5py.File(datafile_n, 'r')
+		except:
+			msg = 'ERROR: input file ' + datafile_n + ' not found'
+			if use_mpi:
+				if rank == 0:
+					print msg
+				mpi.COMM_WORLD.Abort()
+			else:
+				exit(msg)
 		file_data = f['dataset_1'][:]
 		n_in_file = file_data.shape[1]
 		to_load = np.arange(n_in_file) < n_to_load
@@ -264,6 +273,10 @@ else:
 		else:
 			full_data = np.append(full_data, \
 								  file_data[:, to_load, 1:], 1)
+		if rank == 0:
+			print 'loaded ' + \
+				  '{:d}/{:d}'.format(np.sum(to_load), n_spectra) + \
+				  ' spectra from ' + datafile_n
 		n_to_load -= n_in_file
 		n_file += 1
 
@@ -852,8 +865,6 @@ if rank == 0:
 
 		# plot comparison between PCA and MAP covariances
 		if precompress:
-			#ext_cov = np.max((np.abs(np.min(cov_trunc_pca)), \
-			#				  np.max(cov_trunc_pca)))
 			axes_p[k, 0].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
 							   vmax=ext_cov, cmap=mpcm.seismic, \
 							   interpolation='nearest')
