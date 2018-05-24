@@ -71,6 +71,25 @@ def pretty_hist(data, bins, axis, color, density=False, fill=True, \
 			axis.fill_between(bins_to_plot, hist_to_plot, \
 							  color=color, alpha=0.7, step='pre')
 
+def read_spectra(n_to_load, filename, return_wl=False):
+
+	try:
+		f = h5py.File(filename, 'r')
+	except:
+		msg = 'ERROR: input file ' + filename + ' not found'
+		if use_mpi:
+			print msg
+			mpi.COMM_WORLD.Abort()
+		else:
+			exit(msg)
+	file_data = f['dataset_1'][:]
+	n_in_file = file_data.shape[1]
+	to_load = np.arange(n_in_file) < n_to_load
+	if return_wl:
+		return file_data[:, 0, 0], file_data[:, to_load, 1:]
+	else:
+		return file_data[:, to_load, 1:]
+
 # @TODO LIST
 #  - impose low rank on covariance
 
@@ -248,129 +267,148 @@ if datafile is None:
 
 else:
 
-	# read in data
-	n_to_load = n_spectra
-	n_file = 1
-	full_data = None
-	while n_to_load > 0:
-		datafile_n = datafile.format(n_file)
-		try:
-			f = h5py.File(datafile_n, 'r')
-		except:
-			msg = 'ERROR: input file ' + datafile_n + ' not found'
-			if use_mpi:
-				if rank == 0:
-					print msg
-				mpi.COMM_WORLD.Abort()
-			else:
-				exit(msg)
-		file_data = f['dataset_1'][:]
-		n_in_file = file_data.shape[1]
-		to_load = np.arange(n_in_file) < n_to_load
-		if full_data is None:
-			wl = file_data[:, 0, 0]
-			full_data = file_data[:, to_load, 1:]
-		else:
-			full_data = np.append(full_data, \
-								  file_data[:, to_load, 1:], 1)
-		if rank == 0:
-			print 'loaded ' + \
-				  '{:d}/{:d}'.format(np.sum(to_load), n_spectra) + \
-				  ' spectra from ' + datafile_n
-		n_to_load -= n_in_file
-		n_file += 1
+	# file io on master only
+	if rank == 0:
 
-	# construct data vector and noise covariance: mask handled by 
-	# noise variance
-	if window:
+		# data may be distributed over multiple input files. if we're 
+		# windowing we don't know a priori how many spectral bins are
+		# going to be selected. read in the first datafile and 
+		# perform this windowing to ensure we can broadcast to other 
+		# processes
+		n_to_load = n_spectra
+		n_file = 1
+		wl, full_data = read_spectra(n_to_load, \
+									 datafile.format(n_file), \
+									 return_wl=True)
 
-		# read in window definitions. file contains elements with 
-		# positions of features within three wavelength ranges. take 
-		# windows of +/- 2.5 Angstroms about each line center; centers
-		# of 999 Angstroms should be ignored
-		wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
-							  skip_header=1)
-		centers, elements = [], []
-		for i in range(len(wdata)):
-			#for j in range(3):
-			for j in range(2):
-				center = wdata[i][j + 1]
-				if center != 999.0:
-					centers.append(center)
-					elements.append(wdata[i][0])
-		centers, elements = (list(t) for t in \
-							 zip(*sorted(zip(centers, elements))))
-		windices = np.full(len(wl), False, dtype=bool)
-		if rank == 0:
+		# determine data selection
+		if window:
+
+			# read in window definitions. file contains elements with 
+			# positions of features within three wavelength ranges. take 
+			# windows of +/- 2.5 Angstroms about each line center; centers
+			# of 999 Angstroms should be ignored
+			wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
+								  skip_header=1)
+			centers, elements = [], []
+			for i in range(len(wdata)):
+				#for j in range(3):
+				for j in range(2):
+					center = wdata[i][j + 1]
+					if center != 999.0:
+						centers.append(center)
+						elements.append(wdata[i][0])
+			centers, elements = (list(t) for t in \
+								 zip(*sorted(zip(centers, elements))))
+			windices = np.full(len(wl), False, dtype=bool)
 			print 'selecting wavelengths within 2.5 Angstroms of:'
-		wlabels = [elements[0]]
-		for i in range(len(centers)):
-			windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
-											   (wl <= centers[i] + 2.5))
-			if rank == 0:
-				msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
-				print msg.format(i, centers[i])
-			if i > 0:
-				if np.abs(centers[i-1] - centers[i]) < 5.0:
-					wlabels[-1] += '/' + elements[i]
-				else:
-					wlabels.append(elements[i-1])
+			wlabels = [elements[0]]
+			for i in range(len(centers)):
+				windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
+												   (wl <= centers[i] + 2.5))
+				if rank == 0:
+					msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
+					print msg.format(i, centers[i])
+				if i > 0:
+					if np.abs(centers[i-1] - centers[i]) < 5.0:
+						wlabels[-1] += '/' + elements[i]
+					else:
+						wlabels.append(elements[i-1])
+			n_bins = np.sum(windices)
 
-		# select data
-		n_bins = np.sum(windices)
-		wl = np.arange(n_bins)
-		data = full_data[windices, 0: n_spectra, 0].T
-		var_noise = full_data[windices, 0: n_spectra, 1].T ** 2
-		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
-		for i in range(n_spectra):
-			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+			# determine the selected-data indices where the breaks are
+			dwindices = np.append(0, windices[1:].astype(int) - \
+									 windices[:-1].astype(int))
+			wendows = [x[0] for x in np.argwhere(dwindices < 0)]
+			n_windows = len(wendows)
+			wendices = []
+			for i in range(n_windows):
+				wendices.append(np.sum(windices[0: wendows[i]]))
+			n_in_bin = np.append(wendices[0], np.diff(wendices))
+			wl = np.arange(n_bins)
 
-		# determine the selected-data indices where the breaks are
-		dwindices = np.append(0, windices[1:].astype(int) - \
-								 windices[:-1].astype(int))
-		wendows = [x[0] for x in np.argwhere(dwindices < 0)]
-		n_windows = len(wendows)
-		wendices = []
-		for i in range(n_windows):
-			wendices.append(np.sum(windices[0: wendows[i]]))
-		n_in_bin = np.append(wendices[0], np.diff(wendices))
+		else:
 
-	else:
-
-		i_min = 1770 # 1785
-		if rank == 0:
+			i_min = 1770 # 1785
+			windices = np.full(len(wl), False, dtype=bool)
+			windices[i_min: i_min + n_bins] = True
 			msg = 'selecting wavelengths in range {0:.2f}-{1:.2f} Angstroms'
 			print msg.format(wl[i_min], wl[i_min + n_bins])
-		wl = wl[i_min: i_min + n_bins] - 15100.0
-		data = full_data[i_min: i_min + n_bins, 0: n_spectra, 0].T
-		var_noise = full_data[i_min: i_min + n_bins, 0: n_spectra, 1].T ** 2
-		inv_cov_noise = np.zeros((n_spectra, n_bins, n_bins))
-		for i in range(n_spectra):
-			inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+			wl = wl[windices] - 15100.0
 
-	# plot if desired
-	if diagnose and rank == 0:
-		n_to_plot = 20 # n_spectra
-		cols = [cm(x) for x in np.linspace(0.1, 0.9, n_to_plot)]
-		fig, axes = mp.subplots(1, 2, figsize=(10, 5))
-		for i in range(n_to_plot):
-			axes[0].plot(wl, data[i, :], color=cols[i], alpha=0.5)
-			axes[1].semilogy(wl, np.sqrt(var_noise[i, :]), \
-							 color=cols[i], alpha=0.5)
-		for ax in axes:
-			ax.set_xlim(wl[0], wl[-1])
-			ax.set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-			mp.setp(ax.get_xticklabels(), rotation=45)
-		axes[0].set_ylabel(r'${\rm flux}$')
-		axes[1].set_ylabel(r'$\sigma_{\rm flux}$')
+	# initialize data arrays on slave processes
+	n_bins = mpi.COMM_WORLD.bcast(n_bins, root=0)
+	if rank > 0:
 		if window:
-			for i in range(n_windows):
-				axes[0].axvline(wendices[i], color='k', lw=0.5)
-				axes[1].axvline(wendices[i], color='k', lw=0.5)
-		mp.subplots_adjust(bottom=0.15)
-		mp.savefig('simple_test_apogee_inputs.pdf', \
-				   bbox_inches='tight')
-		mp.show()
+			wl = np.zeros(n_bins, dtype=int)
+		else:
+			wl = np.zeros(n_bins)
+	data = np.zeros((n_spectra, n_bins))
+	var_noise = np.zeros((n_spectra, n_bins))
+	inv_cov_noise = None
+	#if no_s_inv:
+	#	cov_noise = np.zeros((n_spectra, n_bins))
+	#else:
+	#	inv_cov_noise = np.zeros((n_bins, n_bins))
+
+	# read in rest of data on master
+	if rank == 0:
+
+		# select data
+		n_loaded = 0
+		while True:
+
+			# load in existing data
+			n_in_file = full_data.shape[1]
+			data[n_loaded: n_loaded + n_in_file] = \
+				full_data[windices, 0: n_spectra, 0].T
+			var_noise[n_loaded: n_loaded + n_in_file] = \
+				full_data[windices, 0: n_spectra, 1].T ** 2
+			#for i in range(n_loaded, n_loaded + n_in_file):
+			#	inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+			n_to_load -= n_in_file
+
+			# search for more data if needed
+			if n_to_load > 0:
+				n_file += 1
+				full_data = read_spectra(n_to_load, \
+										 datafile.format(n_file))
+			else:
+				break
+
+		# plot if desired
+		if diagnose:
+			n_to_plot = 20 # n_spectra
+			cols = [cm(x) for x in np.linspace(0.1, 0.9, n_to_plot)]
+			fig, axes = mp.subplots(1, 2, figsize=(10, 5))
+			for i in range(n_to_plot):
+				axes[0].plot(wl, data[i, :], color=cols[i], alpha=0.5)
+				axes[1].semilogy(wl, np.sqrt(var_noise[i, :]), \
+								 color=cols[i], alpha=0.5)
+			for ax in axes:
+				ax.set_xlim(wl[0], wl[-1])
+				ax.set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+				mp.setp(ax.get_xticklabels(), rotation=45)
+			axes[0].set_ylabel(r'${\rm flux}$')
+			axes[1].set_ylabel(r'$\sigma_{\rm flux}$')
+			if window:
+				for i in range(n_windows):
+					axes[0].axvline(wendices[i], color='k', lw=0.5)
+					axes[1].axvline(wendices[i], color='k', lw=0.5)
+			mp.subplots_adjust(bottom=0.15)
+			mp.savefig('simple_test_apogee_inputs.pdf', \
+					   bbox_inches='tight')
+			mp.show()
+
+	# ensure all processes have same data
+	if use_mpi:
+		mpi.COMM_WORLD.Bcast(wl, root=0)
+		mpi.COMM_WORLD.Bcast(data, root=0)
+		mpi.COMM_WORLD.Bcast(var_noise, root=0)
+		#if no_s_inv:
+		#	mpi.COMM_WORLD.Bcast(cov_noise, root=0)
+		#else:
+		#	mpi.COMM_WORLD.Bcast(inv_cov_noise, root=0)
 
 # perform a PCA of the input data
 if precompress:
@@ -472,14 +510,22 @@ if sample:
 
 			else:
 
-				# check if have spectrum-dependent noise
-				# @TODO: can i speed up this inversion given i already 
-				#        have the cholesky decomp of S?
-				if len(inv_cov_noise.shape) == 3:
-					inv_cov_noise_j = inv_cov_noise[j, :, :]
+				# check if have spectrum-dependent noise, and whether 
+				# noise is diagonal
+				if inv_cov_noise is None:
+					if len(var_noise.shape) == 2:
+						inv_cov_noise_j = np.diag(1.0 / var_noise[j, :])
+					else:
+						inv_cov_noise_j = np.outer(mask[j, :] / \
+												   var_noise, \
+												   mask[j, :])
 				else:
-					inv_cov_noise_j = np.outer(mask[j, :], mask[j, :]) * \
-									  inv_cov_noise
+					if len(inv_cov_noise.shape) == 3:
+						inv_cov_noise_j = inv_cov_noise[j, :, :]
+					else:
+						inv_cov_noise_j = np.outer(mask[j, :], \
+												   mask[j, :]) * \
+										  inv_cov_noise
 				cov_wf = npl.inv(inv_cov_sample[:, :, k] + \
 								 inv_cov_noise_j)
 				cov_wf = symmetrize(cov_wf)
