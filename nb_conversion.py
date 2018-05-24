@@ -360,13 +360,14 @@ else:
 
 			# load in existing data
 			n_in_file = full_data.shape[1]
-			data[n_loaded: n_loaded + n_in_file] = \
-				full_data[windices, 0: n_spectra, 0].T
-			var_noise[n_loaded: n_loaded + n_in_file] = \
-				full_data[windices, 0: n_spectra, 1].T ** 2
+			data[n_loaded: n_loaded + n_in_file, :] = \
+				full_data[windices, :, 0].T
+			var_noise[n_loaded: n_loaded + n_in_file, :] = \
+				full_data[windices, :, 1].T ** 2
 			#for i in range(n_loaded, n_loaded + n_in_file):
 			#	inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
 			n_to_load -= n_in_file
+			n_loaded += n_in_file
 
 			# search for more data if needed
 			if n_to_load > 0:
