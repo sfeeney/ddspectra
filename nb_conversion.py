@@ -108,7 +108,7 @@ no_s_inv = False
 sample = False
 precompress = True
 n_bins = 7 # 50
-n_spectra = 29502
+n_spectra = 2000 # 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -116,10 +116,22 @@ n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = True
+window = 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-2
+
+# build up output filename
+if datafile is None:
+	io_base = 'simple_test_'
+else:
+	io_base = 'apogee_'
+	if window is not None:
+		window_file = window.split('/')[1]
+		io_base += window_file.split('.')[0] + '_'
+io_base += '{:d}_spc_'.format(n_spectra)
+if n_classes > 1:
+	io_base += '{:d}_cls_'.format(n_classes)
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -282,13 +294,13 @@ else:
 									 return_wl=True)
 
 		# determine data selection
-		if window:
+		if window is not None:
 
 			# read in window definitions. file contains elements with 
 			# positions of features within three wavelength ranges. take 
 			# windows of +/- 2.5 Angstroms about each line center; centers
 			# of 999 Angstroms should be ignored
-			wdata = np.genfromtxt('data/centers_subset2.txt', dtype=None, \
+			wdata = np.genfromtxt(window, dtype=None, \
 								  skip_header=1)
 			centers, elements = [], []
 			for i in range(len(wdata)):
@@ -313,7 +325,7 @@ else:
 					if np.abs(centers[i-1] - centers[i]) < 5.0:
 						wlabels[-1] += '/' + elements[i]
 					else:
-						wlabels.append(elements[i-1])
+						wlabels.append(elements[i])
 			n_bins = np.sum(windices)
 
 			# determine the selected-data indices where the breaks are
@@ -339,7 +351,7 @@ else:
 	# initialize data arrays on slave processes
 	n_bins = mpi.COMM_WORLD.bcast(n_bins, root=0)
 	if rank > 0:
-		if window:
+		if window is not None:
 			wl = np.zeros(n_bins, dtype=int)
 		else:
 			wl = np.zeros(n_bins)
@@ -381,23 +393,37 @@ else:
 		if diagnose:
 			n_to_plot = 20 # n_spectra
 			cols = [cm(x) for x in np.linspace(0.1, 0.9, n_to_plot)]
-			fig, axes = mp.subplots(1, 2, figsize=(10, 5))
+			fig, axes = mp.subplots(1, 2, figsize=(16, 5))
 			for i in range(n_to_plot):
 				axes[0].plot(wl, data[i, :], color=cols[i], alpha=0.5)
 				axes[1].semilogy(wl, np.sqrt(var_noise[i, :]), \
 								 color=cols[i], alpha=0.5)
 			for ax in axes:
 				ax.set_xlim(wl[0], wl[-1])
-				ax.set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
-				mp.setp(ax.get_xticklabels(), rotation=45)
+				if window is not None:
+					ax.set_xlabel(r'${\rm index},\,i$')
+				else:
+					ax.set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+					mp.setp(ax.get_xticklabels(), rotation=45)
 			axes[0].set_ylabel(r'${\rm flux}$')
 			axes[1].set_ylabel(r'$\sigma_{\rm flux}$')
-			if window:
+			if window is not None:
 				for i in range(n_windows):
 					axes[0].axvline(wendices[i], color='k', lw=0.5)
 					axes[1].axvline(wendices[i], color='k', lw=0.5)
+					x_text = n_in_bin[i] / 2.0
+					if i > 0:
+						x_text += wendices[i - 1]
+					axes[0].text(x_text, axes[0].get_ylim()[0], \
+								 wlabels[i], fontsize=8, \
+								 ha='center', va='bottom')
+					axes[1].text(x_text, axes[1].get_ylim()[0], \
+								 wlabels[i], fontsize=8, \
+								 ha='center', va='bottom')
+
+
 			mp.subplots_adjust(bottom=0.15)
-			mp.savefig('simple_test_apogee_inputs.pdf', \
+			mp.savefig(io_base + 'apogee_inputs.pdf', \
 					   bbox_inches='tight')
 			mp.show()
 
@@ -593,7 +619,7 @@ if sample:
 
 	# store samples on disk
 	if rank == 0:
-		with h5py.File('simple_test_samples.h5', 'w') as f:
+		with h5py.File(io_base + 'samples.h5', 'w') as f:
 			f.create_dataset('mean', data=mean_samples)
 			f.create_dataset('covariance', data=cov_samples)
 
@@ -601,7 +627,7 @@ else:
 
 	# retrieve samples
 	if rank == 0:
-		with h5py.File('simple_test_samples.h5', 'r') as f:
+		with h5py.File(io_base + 'samples.h5', 'r') as f:
 			mean_samples = f['mean'][:]
 			cov_samples = f['covariance'][:]
 			n_bins, n_classes, n_samples = mean_samples.shape
@@ -635,7 +661,7 @@ if rank == 0:
 	axes[2].set_xlabel('sample')
 	axes[1].set_ylabel('mean')
 	fig.subplots_adjust(hspace=0, wspace=0)
-	mp.savefig('simple_test_trace.pdf', bbox_inches='tight')
+	mp.savefig(io_base + 'trace.pdf', bbox_inches='tight')
 	mp.close()
 
 	# compare means with reference to noise and posterior standard 
@@ -658,7 +684,7 @@ if rank == 0:
 							 label=r'posterior $\sigma$')
 		axes[k].plot(wl, res, 'r', label=label)
 		if datafile is not None:
-			if window:
+			if window is not None:
 				for i in range(n_windows):
 					axes[k].axvline(wendices[i], color='k', lw=0.5, \
 									ls=':')
@@ -673,7 +699,7 @@ if rank == 0:
 		axes[k].legend(loc='upper right')
 	if datafile is not None:
 		axes[-1].set_xlim(wl[0], wl[-1])
-		if window:
+		if window is not None:
 			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
 		else:
 			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
@@ -681,7 +707,7 @@ if rank == 0:
 	else:
 		axes[-1].set_xlabel(r'index ($i$)', fontsize=14)
 	fig.subplots_adjust(hspace=0, wspace=0)
-	mp.savefig('simple_test_mean.pdf', bbox_inches='tight')
+	mp.savefig(io_base + 'mean.pdf', bbox_inches='tight')
 	mp.close()
 
 	# compare covariances
@@ -739,7 +765,7 @@ if rank == 0:
 									   bottom='off', top='off', \
 									   labeltop='off', right='off', \
 									   left='off', labelleft='off')
-	mp.savefig('simple_test_covariance.pdf', bbox_inches='tight')
+	mp.savefig(io_base + 'covariance.pdf', bbox_inches='tight')
 	mp.close()
 
 	# compare correlations
@@ -791,7 +817,7 @@ if rank == 0:
 									   bottom='off', top='off', \
 									   labeltop='off', right='off', \
 									   left='off', labelleft='off')
-	mp.savefig('simple_test_correlation.pdf', bbox_inches='tight')
+	mp.savefig(io_base + 'correlation.pdf', bbox_inches='tight')
 	mp.close()
 
 	# plot some realizations of the mean-posterior Gaussian process
@@ -834,7 +860,7 @@ if rank == 0:
 		else:
 			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
 			mp.setp(axes[-1].get_xticklabels(), rotation=45)
-		mp.savefig('simple_test_gp_realizations.pdf', bbox_inches='tight')
+		mp.savefig(io_base + 'gp_realizations.pdf', bbox_inches='tight')
 		mp.close()
 
 	# fun with ranks and eigenvalues of covariance matrices!
@@ -944,12 +970,12 @@ if rank == 0:
 	axes_e[0].set_xlim(0, n_bins)
 	axes_e[1].set_xlabel(r'$\lambda_i$')
 	axes_e[1].set_ylabel(r'$N(\lambda_i)$')
-	fig.savefig('simple_test_low_rank_covariance.pdf', bbox_inches='tight')
-	fig_e.savefig('simple_test_evals.pdf', bbox_inches='tight')
+	fig.savefig(io_base + 'low_rank_covariance.pdf', bbox_inches='tight')
+	fig_e.savefig(io_base + 'evals.pdf', bbox_inches='tight')
 	mp.close(fig)
 	mp.close(fig_e)
 	if precompress:
-		fig_p.savefig('simple_test_pca_vs_map.pdf', bbox_inches='tight')
+		fig_p.savefig(io_base + 'pca_vs_map.pdf', bbox_inches='tight')
 		mp.close(fig_p)
 
 	# condition numbers of sampled covariance matrices
@@ -960,7 +986,7 @@ if rank == 0:
 				mp.axhline(npl.cond(cov[:, :, k]))
 		mp.xlabel('index')
 		mp.ylabel('condition number')
-		mp.savefig('simple_test_conds.pdf', bbox_inches='tight')
+		mp.savefig(io_base + 'conds.pdf', bbox_inches='tight')
 		mp.close()
 
 	# eigenvectors of interest!
@@ -990,7 +1016,7 @@ if rank == 0:
 		axes[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
 		axes[-1, k].set_xlim(wl[0], wl[-1])
 	fig.subplots_adjust(hspace=0)
-	mp.savefig('simple_test_evex.pdf', bbox_inches='tight')
+	mp.savefig(io_base + 'evex.pdf', bbox_inches='tight')
 	mp.close()
 
 	# conditional variance plots: which features best predict others?
@@ -1169,11 +1195,11 @@ if rank == 0:
 		axes_e[-1, k].set_xlabel(r'${\rm index},\,i$', fontsize=16)
 		axes_e[-1, k].set_xlim(wl[0], wl[-1])
 		fig.subplots_adjust(hspace=0)
-		fig.savefig('simple_test_conditional_stddevs.pdf', bbox_inches='tight')
+		fig.savefig(io_base + 'conditional_stddevs.pdf', bbox_inches='tight')
 		mp.close(fig)
 		fig_d.subplots_adjust(hspace=0)
-		fig_d.savefig('simple_test_conditional_inf_gain.pdf', bbox_inches='tight')
+		fig_d.savefig(io_base + 'conditional_inf_gain.pdf', bbox_inches='tight')
 		mp.close(fig_d)
 		fig_e.subplots_adjust(hspace=0)
-		fig_e.savefig('simple_test_most_correlated_stddevs.pdf', bbox_inches='tight')
+		fig_e.savefig(io_base + 'most_correlated_stddevs.pdf', bbox_inches='tight')
 		mp.close(fig_e)
