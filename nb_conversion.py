@@ -108,7 +108,7 @@ no_s_inv = False
 sample = False
 precompress = True
 n_bins = 7 # 50
-n_spectra = 2000 # 29502
+n_spectra = 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -348,25 +348,9 @@ else:
 			print msg.format(wl[i_min], wl[i_min + n_bins])
 			wl = wl[windices] - 15100.0
 
-	# initialize data arrays on slave processes
-	n_bins = mpi.COMM_WORLD.bcast(n_bins, root=0)
-	if rank > 0:
-		if window is not None:
-			wl = np.zeros(n_bins, dtype=int)
-		else:
-			wl = np.zeros(n_bins)
-	data = np.zeros((n_spectra, n_bins))
-	var_noise = np.zeros((n_spectra, n_bins))
-	inv_cov_noise = None
-	#if no_s_inv:
-	#	cov_noise = np.zeros((n_spectra, n_bins))
-	#else:
-	#	inv_cov_noise = np.zeros((n_bins, n_bins))
-
-	# read in rest of data on master
-	if rank == 0:
-
 		# select data
+		data = np.zeros((n_spectra, n_bins))
+		var_noise = np.zeros((n_spectra, n_bins))
 		n_loaded = 0
 		while True:
 
@@ -420,8 +404,6 @@ else:
 					axes[1].text(x_text, axes[1].get_ylim()[0], \
 								 wlabels[i], fontsize=8, \
 								 ha='center', va='bottom')
-
-
 			mp.subplots_adjust(bottom=0.15)
 			mp.savefig(io_base + 'apogee_inputs.pdf', \
 					   bbox_inches='tight')
@@ -429,13 +411,20 @@ else:
 
 	# ensure all processes have same data
 	if use_mpi:
+
+		# initialize data arrays on slave processes
+		n_bins = mpi.COMM_WORLD.bcast(n_bins, root=0)
+		if rank > 0:
+			if window is not None:
+				wl = np.zeros(n_bins, dtype=int)
+			else:
+				wl = np.zeros(n_bins)
+			data = np.zeros((n_spectra, n_bins))
+			var_noise = np.zeros((n_spectra, n_bins))
+		inv_cov_noise = None
 		mpi.COMM_WORLD.Bcast(wl, root=0)
 		mpi.COMM_WORLD.Bcast(data, root=0)
 		mpi.COMM_WORLD.Bcast(var_noise, root=0)
-		#if no_s_inv:
-		#	mpi.COMM_WORLD.Bcast(cov_noise, root=0)
-		#else:
-		#	mpi.COMM_WORLD.Bcast(inv_cov_noise, root=0)
 
 # perform a PCA of the input data
 if precompress:
