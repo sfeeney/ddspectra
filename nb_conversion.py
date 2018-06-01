@@ -132,6 +132,8 @@ else:
 io_base += '{:d}_spc_'.format(n_spectra)
 if n_classes > 1:
 	io_base += '{:d}_cls_'.format(n_classes)
+if precompress:
+	io_base += 'pca_'
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -408,7 +410,7 @@ else:
 			mp.savefig(io_base + 'apogee_inputs.pdf', \
 					   bbox_inches='tight')
 			mp.show()
-
+			
 	# ensure all processes have same data
 	if use_mpi:
 
@@ -426,16 +428,37 @@ else:
 		mpi.COMM_WORLD.Bcast(data, root=0)
 		mpi.COMM_WORLD.Bcast(var_noise, root=0)
 
-# perform a PCA of the input data
+# assign lists of spectral and class IDs for each MPI process
+job_list = allocate_jobs(n_spectra, n_procs, rank)
+class_job_list = allocate_jobs(n_classes, n_procs, rank)
+
+# if desired, perform a PCA of the input data and compress
+# into space spanned by largest principal components
 if precompress:
+
+	# perform PCA
 	import sklearn.decomposition as skd
 	pca = skd.PCA()
 	pca.fit(data)
 	d_evals = pca.explained_variance_[::-1]
-	d_evex = pca.components_[::-1, :]
 	ind_pc_sig = d_evals > \
 				 np.max(d_evals) * eval_thresh
 	n_pc_sig = np.sum(ind_pc_sig)
+	proj_pc = pca.components_[n_pc_sig-1::-1, :]
+
+	# project data and (inverse) noise covariances
+	if rank == 0:
+		print 'compressing: {:d} bins onto '.format(n_bins) + \
+			  '{:d} principal components'.format(n_pc_sig)
+	data = np.dot(data, proj_pc.T)
+	inv_cov_noise = np.zeros((n_spectra, n_pc_sig, n_pc_sig))
+	for i in job_list:
+		inv_cov_noise[i, :, :] = np.dot(proj_pc / \
+										var_noise[i, :], \
+										proj_pc.T)
+	inv_cov_noise = complete_array(inv_cov_noise, use_mpi)
+	n_bins_in = n_bins
+	n_bins = n_pc_sig
 
 # initial conditions for sampler
 class_id_sample = np.zeros(n_spectra, dtype=int)
@@ -461,8 +484,6 @@ conds = np.zeros((n_classes, n_samples))
 # Gibbs sample!
 if sample:
 
-	job_list = allocate_jobs(n_spectra, n_procs, rank)
-	class_job_list = allocate_jobs(n_classes, n_procs, rank)
 	d_sample = n_samples / 10
 	for i in range(n_samples):
 
@@ -621,6 +642,18 @@ else:
 			cov_samples = f['covariance'][:]
 			n_bins, n_classes, n_samples = mean_samples.shape
 			n_warmup = n_samples / 4
+
+# reproject compressed mean and covariance samples back onto original
+# spectral bins
+if precompress:
+
+	if rank == 0:
+		print 'inflating samples'
+	mean_samples = np.einsum('ji,jkl', proj_pc, mean_samples)
+	tmp = np.einsum('ji,jlmn', proj_pc, cov_samples)
+	cov_samples = np.einsum('iklm,kj', tmp, proj_pc)
+	#cov_samples = np.einsum('ki,klmn,lj', proj_pc, cov_samples, proj_pc)
+	n_bins = n_bins_in
 
 # summarize results
 mp_mean = np.zeros((n_bins, n_classes))
@@ -872,9 +905,9 @@ if rank == 0:
 		pretty_hist(d_evals, eval_bins, axes_e[1], 'k', \
 					fill=False, ls='--')
 		cov_trunc_pca = \
-			np.dot(d_evex[-n_pc_sig:, :].T, \
+			np.dot(proj_pc.T, \
 				   np.dot(np.diag(d_evals[-n_pc_sig:]), \
-						  d_evex[-n_pc_sig:, :]))
+						  proj_pc))
 	for k in range(n_classes):
 
 		# calculate spectral decomposition and plot evals
