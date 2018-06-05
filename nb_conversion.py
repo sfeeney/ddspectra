@@ -27,6 +27,18 @@ def allocate_jobs(n_jobs, n_procs=1, rank=0):
 						 n_j_allocated + n_j_to_allocate)
 		n_j_allocated += n_j_to_allocate
 
+def allocate_all_jobs(n_jobs, n_procs=1):
+	allocation = []
+	n_j_allocated = 0
+	for i in range(n_procs):
+		n_j_remain = n_jobs - n_j_allocated
+		n_p_remain = n_procs - i
+		n_j_to_allocate = n_j_remain / n_p_remain
+		allocation.append(range(n_j_allocated, \
+								n_j_allocated + n_j_to_allocate))
+		n_j_allocated += n_j_to_allocate
+	return allocation
+
 def complete_array(target_distrib, use_mpi=False):
 	if use_mpi:
 		target = np.zeros(target_distrib.shape, \
@@ -36,6 +48,45 @@ def complete_array(target_distrib, use_mpi=False):
 		mpi.COMM_WORLD.Allreduce(target_distrib, target, op=mpi.SUM)
 	else:
 		target = target_distrib
+	return target
+
+def complete_array_alt(target_distrib, job_lists, use_mpi=False, \
+					   last=True):
+	if use_mpi:
+
+		# determine required dimensions
+		target_shape = target_distrib.shape
+		n_dim = len(target_shape)
+		if last:
+			i_bcast = n_dim - 1
+		else:
+			i_bcast = 0
+		dim = [i for i in range(n_dim) if i != i_bcast]
+		shape = [target_shape[i] for i in dim]
+
+		# dimension output and work arrays
+		target = np.zeros(target_shape, dtype=target_distrib.dtype)
+		bcast = np.zeros(shape, dtype=target_distrib.dtype)
+
+		# loop and broadcast by array rows/columns
+		n_procs = len(job_lists)
+		for i in range(n_procs):
+			for j in job_lists[i]:
+				if rank == i:
+					if last:
+						bcast[...] = target_distrib[..., j]
+					else:
+						bcast[...] = target_distrib[j, ...]
+				mpi.COMM_WORLD.Bcast(bcast, root=i)
+				if last:
+					target[..., j] = bcast[...]
+				else:
+					target[j, ...] = bcast[...]
+
+	else:
+
+		target = target_distrib
+	
 	return target
 
 def axis_to_axes(axis, transpose=False):
@@ -105,10 +156,10 @@ cm = mpcm.get_cmap('plasma')
 use_mpi = True
 constrain = True
 no_s_inv = False
-sample = False
+sample = True
 precompress = True
 n_bins = 7 # 50
-n_spectra = 29502
+n_spectra = 2000 # 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -119,7 +170,7 @@ datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
-eval_thresh = 1.0e-2
+eval_thresh = 1.0e-2 #1.0e-4
 
 # build up output filename
 if datafile is None:
@@ -429,8 +480,8 @@ else:
 		mpi.COMM_WORLD.Bcast(var_noise, root=0)
 
 # assign lists of spectral and class IDs for each MPI process
-job_list = allocate_jobs(n_spectra, n_procs, rank)
-class_job_list = allocate_jobs(n_classes, n_procs, rank)
+job_lists = allocate_all_jobs(n_spectra, n_procs)
+class_job_lists = allocate_all_jobs(n_classes, n_procs)
 
 # if desired, perform a PCA of the input data and compress
 # into space spanned by largest principal components
@@ -452,11 +503,13 @@ if precompress:
 			  '{:d} principal components'.format(n_pc_sig)
 	data = np.dot(data, proj_pc.T)
 	inv_cov_noise = np.zeros((n_spectra, n_pc_sig, n_pc_sig))
-	for i in job_list:
+	for i in job_lists[rank]:
 		inv_cov_noise[i, :, :] = np.dot(proj_pc / \
 										var_noise[i, :], \
 										proj_pc.T)
-	inv_cov_noise = complete_array(inv_cov_noise, use_mpi)
+	#inv_cov_noise = complete_array(inv_cov_noise, use_mpi)
+	inv_cov_noise = complete_array_alt(inv_cov_noise, job_lists, \
+									   use_mpi, last=False)
 	n_bins_in = n_bins
 	n_bins = n_pc_sig
 
@@ -507,7 +560,7 @@ if sample:
 		# reassign classes
 		class_id_sample = np.zeros(n_spectra, dtype=int)
 		if n_classes > 1:
-			for j in job_list:
+			for j in job_lists[rank]:
 				class_probs = np.zeros(n_classes)
 				for k in range(n_classes):
 					delta = spectra_samples[j, :] - mean_sample[:, k]
@@ -523,7 +576,7 @@ if sample:
 
 		# calculate WF for each spectrum and use to draw true spectra
 		spectra_samples = np.zeros(data.shape)
-		for j in job_list:
+		for j in job_lists[rank]:
 
 			# class id
 			k = class_id_sample[j]
@@ -574,11 +627,13 @@ if sample:
 			spectra_samples[j, :] = npr.multivariate_normal(mean_wf, \
 															cov_wf, 1)
 		spectra_samples = complete_array(spectra_samples, use_mpi)
+		#test = complete_array_alt(spectra_samples, job_lists, use_mpi, \
+		#						  last=False)
 
 		# only class parameters require sampling; can do one class per 
 		# mpi process. first sample means
 		mean_sample = np.zeros((n_bins, n_classes))
-		for k in class_job_list:
+		for k in class_job_lists[rank]:
 
 			# class members
 			in_class_k = (class_id_sample == k)
@@ -598,7 +653,7 @@ if sample:
 
 		# now sample covariances
 		cov_sample = np.zeros((n_bins, n_bins, n_classes))
-		for k in class_job_list:
+		for k in class_job_lists[rank]:
 
 			# class members
 			in_class_k = (class_id_sample == k)
@@ -891,11 +946,12 @@ if rank == 0:
 	mp_cov_evex = np.zeros((n_bins, n_bins, n_classes))
 	fig, axes = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
 	fig_e, axes_e = mp.subplots(1, 2, figsize=(16, 5))
-	if precompress:
-		fig_p, axes_p = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
 	if n_classes == 1:
 		axes = axis_to_axes(axes)
-		axes_p = axis_to_axes(axes_p)
+	if precompress:
+		fig_p, axes_p = mp.subplots(n_classes, 3, figsize=(16, 5 * n_classes))
+		if n_classes == 1:
+			axes_p = axis_to_axes(axes_p)
 	cols = [cm(x) for x in np.linspace(0.1, 0.9, n_classes)]
 	if precompress:
 		axes_e[0].semilogy(d_evals, color='k', ls='--', \
@@ -1225,3 +1281,75 @@ if rank == 0:
 		fig_e.subplots_adjust(hspace=0)
 		fig_e.savefig(io_base + 'most_correlated_stddevs.pdf', bbox_inches='tight')
 		mp.close(fig_e)
+
+		# additional plots if Cerium is included in the element list
+		ce_windows = [ind for ind, label in enumerate(wlabels) \
+					  if label == 'Ti']
+		n_ce_windows = len(ce_windows)
+		print n_ce_windows
+		print ce_windows
+		if n_ce_windows > 0:
+
+			# plot predicted std devs (and covs?) for Cerium windows
+			# given all other data
+			fig, axes = mp.subplots(n_ce_windows, n_classes, \
+									figsize=(8 * n_classes, \
+											 5 * n_ce_windows), \
+									sharex=True)
+			if n_classes == 1:
+				axes = axis_to_axes(axes, True)
+			for k in range(n_classes):
+
+				#inds_i = np.full(len(wl), False, dtype=bool)
+				inds_o = np.full(len(wl), False, dtype=bool)
+				for i in ce_windows:
+
+					print wlabels[i]
+
+					# now what? assume that all other bins observed (i.e., 
+					# inds_i is everything other than this bin [and other 
+					# Ce?])
+					# better not to loop through windows but instead exclude
+					# all Ce bins?
+
+					# find indices
+					if i == 0:
+						inds_o = inds_o | (wl < wendices[i])
+					else:
+						inds_o = inds_o | ((wl >= wendices[i - 1]) & \
+										   (wl < wendices[i]))
+				inds_i = ~inds_o
+				n_i = np.sum(inds_i)
+				n_o = np.sum(inds_o)
+
+				print n_i, n_o
+
+				# construct submatrices
+				s_ii = np.zeros((n_i, n_i))
+				s_io = np.zeros((n_i, n_o))
+				s_oo = np.zeros((n_o, n_o))
+				n = 0
+				for j in range(n_bins):
+					if inds_i[j]:
+						s_ii[n, :] = mp_cov[j, inds_i, k]
+						s_io[n, :] = mp_cov[j, inds_o, k]
+						n += 1
+					else:
+						s_oo[j - n, :] = mp_cov[j, inds_o, k]
+
+				# calculate and plot covariance of conditional distribution
+				s_ii_inv = npl.inv(s_ii)
+				cond_cov = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
+				axes[k, 0].plot(wl[inds_o], np.sqrt(np.diag(cond_cov)))
+				axes[k, 0].set_ylabel(r'$\sigma$')
+			# zomg
+		#what to plot? mean spectrum in those ranges?
+		#conditional stddev from everything else?
+		fig.subplots_adjust(hspace=0)
+		fig.savefig(io_base + 'ce_conditional_stddevs.pdf', \
+					bbox_inches='tight')
+		mp.close(fig)
+
+
+
+
