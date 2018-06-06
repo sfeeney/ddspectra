@@ -552,8 +552,8 @@ if precompress:
 		inv_cov_noise = complete_array_alt(inv_cov_noise, job_lists, \
 										   use_mpi, last=False)
 	else:
-		inv_cov_noise = np.zeros((n_jobs, n_pc_sig, n_pc_sig))
 		n_jobs = len(job_lists[rank])
+		inv_cov_noise = np.zeros((n_jobs, n_pc_sig, n_pc_sig))
 		for i in range(n_jobs):
 			inv_cov_noise[i, :, :] = np.dot(proj_pc / \
 											var_noise[i, :], \
