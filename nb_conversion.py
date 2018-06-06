@@ -159,7 +159,7 @@ no_s_inv = False
 sample = True
 precompress = True
 n_bins = 7 # 50
-n_spectra = 2000 # 29502
+n_spectra = 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -199,6 +199,10 @@ if constrain:
 else:
 	seed = npr.randint(231014, 221216, 1)[0]
 npr.seed(seed)
+
+# assign lists of spectral and class IDs for each MPI process
+job_lists = allocate_all_jobs(n_spectra, n_procs)
+class_job_lists = allocate_all_jobs(n_classes, n_procs)
 
 # simulate or read input data
 if datafile is None:
@@ -461,7 +465,8 @@ else:
 			mp.savefig(io_base + 'apogee_inputs.pdf', \
 					   bbox_inches='tight')
 			mp.show()
-			
+	
+	'''
 	# ensure all processes have same data
 	if use_mpi:
 
@@ -478,10 +483,44 @@ else:
 		mpi.COMM_WORLD.Bcast(wl, root=0)
 		mpi.COMM_WORLD.Bcast(data, root=0)
 		mpi.COMM_WORLD.Bcast(var_noise, root=0)
+	'''
+			
+	# ensure all processes have appropriate data
+	if use_mpi:
 
-# assign lists of spectral and class IDs for each MPI process
-job_lists = allocate_all_jobs(n_spectra, n_procs)
-class_job_lists = allocate_all_jobs(n_classes, n_procs)
+		# initialize data arrays on slave processes
+		n_bins = mpi.COMM_WORLD.bcast(n_bins, root=0)
+		if rank > 0:
+			if window is not None:
+				wl = np.zeros(n_bins, dtype=int)
+			else:
+				wl = np.zeros(n_bins)
+			data = np.zeros((len(job_lists[rank]), n_bins))
+			var_noise = np.zeros((len(job_lists[rank]), n_bins))
+		full_data = np.zeros((n_spectra, n_bins))
+		if rank == 0:
+			full_data[:, :] = data[:, :]
+		inv_cov_noise = None
+
+		# share data and noise variances such that only one 
+		# distributed copy is present. need to keep a full copy of 
+		# the data for now in order to calculate its PCA and 
+		# initialize the sampler
+		mpi.COMM_WORLD.Bcast(wl, root=0)
+		for i in range(1, n_procs):
+			for j in range(len(job_lists[i])):
+				j_full = job_lists[i][j]
+				if rank == 0:
+					mpi.COMM_WORLD.Send(data[j_full, :], i)
+					mpi.COMM_WORLD.Send(var_noise[j_full, :], i)
+				elif rank == i:
+					mpi.COMM_WORLD.Recv(data[j, :], 0)
+					mpi.COMM_WORLD.Recv(var_noise[j, :], 0)
+		if rank == 0:
+			root_jobs = [i in job_lists[0] for i in range(n_spectra)]
+			data = data[root_jobs, :]
+			var_noise = var_noise[root_jobs, :]
+		mpi.COMM_WORLD.Bcast(full_data, root=0)
 
 # if desired, perform a PCA of the input data and compress
 # into space spanned by largest principal components
@@ -490,7 +529,7 @@ if precompress:
 	# perform PCA
 	import sklearn.decomposition as skd
 	pca = skd.PCA()
-	pca.fit(data)
+	pca.fit(full_data)
 	d_evals = pca.explained_variance_[::-1]
 	ind_pc_sig = d_evals > \
 				 np.max(d_evals) * eval_thresh
@@ -502,14 +541,23 @@ if precompress:
 		print 'compressing: {:d} bins onto '.format(n_bins) + \
 			  '{:d} principal components'.format(n_pc_sig)
 	data = np.dot(data, proj_pc.T)
-	inv_cov_noise = np.zeros((n_spectra, n_pc_sig, n_pc_sig))
-	for i in job_lists[rank]:
-		inv_cov_noise[i, :, :] = np.dot(proj_pc / \
-										var_noise[i, :], \
-										proj_pc.T)
-	#inv_cov_noise = complete_array(inv_cov_noise, use_mpi)
-	inv_cov_noise = complete_array_alt(inv_cov_noise, job_lists, \
-									   use_mpi, last=False)
+	full_data = np.dot(full_data, proj_pc.T)
+	if datafile is None:
+		inv_cov_noise = np.zeros((n_spectra, n_pc_sig, n_pc_sig))
+		for i in job_lists[rank]:
+			inv_cov_noise[i, :, :] = np.dot(proj_pc / \
+											var_noise[i, :], \
+											proj_pc.T)
+		#inv_cov_noise = complete_array(inv_cov_noise, use_mpi)
+		inv_cov_noise = complete_array_alt(inv_cov_noise, job_lists, \
+										   use_mpi, last=False)
+	else:
+		inv_cov_noise = np.zeros((n_jobs, n_pc_sig, n_pc_sig))
+		n_jobs = len(job_lists[rank])
+		for i in range(n_jobs):
+			inv_cov_noise[i, :, :] = np.dot(proj_pc / \
+											var_noise[i, :], \
+											proj_pc.T)
 	n_bins_in = n_bins
 	n_bins = n_pc_sig
 
@@ -525,14 +573,23 @@ cov_sample = np.zeros((n_bins, n_bins, n_classes))
 spectra_samples = np.zeros((n_spectra, n_bins))
 for k in range(n_classes):
 	in_class_k = (class_id_sample == k)
-	mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
-	cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
+	if datafile is None:
+		mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
+		cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
+	else:
+		mean_sample[:, k] = np.mean(full_data[in_class_k, :], 0)
+		cov_sample[:, :, k] = np.cov(full_data[in_class_k, :], rowvar=False)
 for j in range(n_spectra):
 	#spectra_samples[j, :] = mean_sample[:, class_id_sample[j]]
-	spectra_samples[j, :] = data[j, :]
+	if datafile is None:
+		spectra_samples[j, :] = data[j, :]
+	else:
+		spectra_samples[j, :] = full_data[j, :]
 mean_samples = np.zeros((n_bins, n_classes, n_samples))
 cov_samples = np.zeros((n_bins, n_bins, n_classes, n_samples))
 conds = np.zeros((n_classes, n_samples))
+if datafile is not None:
+	full_data = None
 
 # Gibbs sample!
 if sample:
@@ -575,11 +632,19 @@ if sample:
 			class_id_sample = complete_array(class_id_sample, use_mpi)
 
 		# calculate WF for each spectrum and use to draw true spectra
-		spectra_samples = np.zeros(data.shape)
-		for j in job_lists[rank]:
+		spectra_samples = np.zeros((n_spectra, n_bins))
+		for jj in range(len(job_lists[rank])):
 
-			# class id
-			k = class_id_sample[j]
+			# ensure we get correct ids. j_full is the index into the 
+			# full list of spectra, j is the index into the local 
+			# data arrays. currently, these are only different in the 
+			# apogee case
+			j_full = job_lists[rank][jj]
+			if datafile is None:
+				j = j_full
+			else:
+				j = jj
+			k = class_id_sample[j_full]
 
 			# avoid S^-1?
 			if no_s_inv:
@@ -624,8 +689,8 @@ if sample:
 								 		mean_sample[:, k]) + \
 								 np.dot(inv_cov_noise_j, data[j, :]))
 				
-			spectra_samples[j, :] = npr.multivariate_normal(mean_wf, \
-															cov_wf, 1)
+			spectra_samples[j_full, :] = \
+				npr.multivariate_normal(mean_wf, cov_wf, 1)
 		spectra_samples = complete_array(spectra_samples, use_mpi)
 		#test = complete_array_alt(spectra_samples, job_lists, use_mpi, \
 		#						  last=False)
