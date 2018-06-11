@@ -158,6 +158,7 @@ constrain = True
 no_s_inv = False
 sample = True
 precompress = True
+inpaint = True
 n_bins = 7 # 50
 n_spectra = 29502
 n_classes = 1
@@ -184,7 +185,10 @@ io_base += '{:d}_spc_'.format(n_spectra)
 if n_classes > 1:
 	io_base += '{:d}_cls_'.format(n_classes)
 if precompress:
-	io_base += 'pca_'
+	if inpaint:
+		io_base += 'inpaint_pca_'
+	else:
+		io_base += 'pca_'
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -529,6 +533,14 @@ if precompress:
 	# perform PCA
 	import sklearn.decomposition as skd
 	pca = skd.PCA()
+	if inpaint:
+		# calculate masked mean to improve PCA by inpainting 
+		# masked regions
+		masked = np.sqrt(var_noise) > 1000.0
+		masked_mean = (np.sum(data, 0) - np.sum(masked, 0)) / \
+					  np.sum(~masked, 0)
+		for i in range(n_spectra):
+			full_data[i, masked[i, :]] = masked_mean[masked[i, :]]
 	pca.fit(full_data)
 	d_evals = pca.explained_variance_[::-1]
 	ind_pc_sig = d_evals > \
