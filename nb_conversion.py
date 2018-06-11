@@ -160,7 +160,7 @@ sample = True
 precompress = True
 inpaint = True
 n_bins = 7 # 50
-n_spectra = 29502
+n_spectra = 2000 # 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -171,7 +171,7 @@ datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
-eval_thresh = 1.0e-2 #1.0e-4
+eval_thresh = 1.0e-4
 
 # build up output filename
 if datafile is None:
@@ -434,6 +434,19 @@ else:
 			else:
 				break
 
+		# optionally inpaint masked regions with masked mean to 
+		# improve PCA
+		full_data = np.zeros((n_spectra, n_bins))
+		if inpaint:
+			masked = np.sqrt(var_noise) > 1000.0
+			masked_mean = (np.sum(data, 0) - np.sum(masked, 0)) / \
+						  np.sum(~masked, 0)
+			for i in range(n_spectra):
+				full_data[i, ~masked[i, :]] = data[i, ~masked[i, :]]
+				full_data[i, masked[i, :]] = masked_mean[masked[i, :]]
+		else:
+			full_data[:, :] = data[:, :]
+
 		# plot if desired
 		if diagnose:
 			n_to_plot = 20 # n_spectra
@@ -501,9 +514,7 @@ else:
 				wl = np.zeros(n_bins)
 			data = np.zeros((len(job_lists[rank]), n_bins))
 			var_noise = np.zeros((len(job_lists[rank]), n_bins))
-		full_data = np.zeros((n_spectra, n_bins))
-		if rank == 0:
-			full_data[:, :] = data[:, :]
+			full_data = np.zeros((n_spectra, n_bins))
 		inv_cov_noise = None
 
 		# share data and noise variances such that only one 
@@ -533,14 +544,6 @@ if precompress:
 	# perform PCA
 	import sklearn.decomposition as skd
 	pca = skd.PCA()
-	if inpaint:
-		# calculate masked mean to improve PCA by inpainting 
-		# masked regions
-		masked = np.sqrt(var_noise) > 1000.0
-		masked_mean = (np.sum(data, 0) - np.sum(masked, 0)) / \
-					  np.sum(~masked, 0)
-		for i in range(n_spectra):
-			full_data[i, masked[i, :]] = masked_mean[masked[i, :]]
 	pca.fit(full_data)
 	d_evals = pca.explained_variance_[::-1]
 	ind_pc_sig = d_evals > \
