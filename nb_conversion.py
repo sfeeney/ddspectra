@@ -160,7 +160,7 @@ sample = True
 precompress = True
 inpaint = True
 n_bins = 7 # 50
-n_spectra = 2000 # 29502
+n_spectra = 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -168,7 +168,7 @@ n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = 'data/centers_subset2.txt' # filename or None
+window = None # 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -379,35 +379,42 @@ else:
 			for i in range(len(centers)):
 				windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
 												   (wl <= centers[i] + 2.5))
-				if rank == 0:
-					msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
-					print msg.format(i, centers[i])
+				msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
+				print msg.format(i, centers[i])
 				if i > 0:
 					if np.abs(centers[i-1] - centers[i]) < 5.0:
 						wlabels[-1] += '/' + elements[i]
 					else:
 						wlabels.append(elements[i])
-			n_bins = np.sum(windices)
-
-			# determine the selected-data indices where the breaks are
-			dwindices = np.append(0, windices[1:].astype(int) - \
-									 windices[:-1].astype(int))
-			wendows = [x[0] for x in np.argwhere(dwindices < 0)]
-			n_windows = len(wendows)
-			wendices = []
-			for i in range(n_windows):
-				wendices.append(np.sum(windices[0: wendows[i]]))
-			n_in_bin = np.append(wendices[0], np.diff(wendices))
-			wl = np.arange(n_bins)
 
 		else:
 
-			i_min = 1770 # 1785
-			windices = np.full(len(wl), False, dtype=bool)
-			windices[i_min: i_min + n_bins] = True
-			msg = 'selecting wavelengths in range {0:.2f}-{1:.2f} Angstroms'
-			print msg.format(wl[i_min], wl[i_min + n_bins])
-			wl = wl[windices] - 15100.0
+			# some portions of the spectra are masked in all objects.
+			# remove them.
+			all_masked = np.array([[0, 247], [3273, 3688], \
+								  [6079, 6371], [8334, 8575]])
+			n_all_masked = all_masked.shape[0]
+			print 'removing totally masked wavelengths in ranges:'
+			windices = np.full(len(wl), True, dtype=bool)
+			msg = '{0:1d}: {1:.2f}-{2:.2f} A'
+			for i in range(n_all_masked):
+				print msg.format(i, wl[all_masked[i, 0]], \
+								 wl[all_masked[i, 1] - 1])
+				windices[all_masked[i, 0]: all_masked[i, 1]] = False
+			wlabels = ['{:1d}'.format(i) for i in \
+					   range(1, n_all_masked)]
+
+		# determine the selected-data indices where the breaks are
+		n_bins = np.sum(windices)
+		dwindices = np.append(0, windices[1:].astype(int) - \
+								 windices[:-1].astype(int))
+		wendows = [x[0] for x in np.argwhere(dwindices < 0)]
+		n_windows = len(wendows)
+		wendices = []
+		for i in range(n_windows):
+			wendices.append(np.sum(windices[0: wendows[i]]))
+		n_in_bin = np.append(wendices[0], np.diff(wendices))
+		wl = np.arange(n_bins)
 
 		# select data
 		data = np.zeros((n_spectra, n_bins))
