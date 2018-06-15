@@ -157,11 +157,11 @@ use_mpi = True
 constrain = True
 no_s_inv = False
 sample = True
-precompress = True
-inpaint = True
+precompress = False
+inpaint = False
 n_bins = 7 # 50
-n_spectra = 29502
-n_classes = 1
+n_spectra = 2000 # 29502
+n_classes = 2
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
@@ -627,30 +627,50 @@ if sample:
 		# use lapack directly for this to avoid two N^3 operations
 		if not no_s_inv:
 			inv_cov_sample = np.zeros((n_bins, n_bins, n_classes))
-			sqrt_cov_det = np.zeros(n_classes)
+			ln_cov_det = np.zeros(n_classes)
 			for k in range(n_classes):
 				#inv_cov_sample[:, :, k] = npl.inv(cov_sample[:, :, k])
 				chol_k = spl.dpotrf(cov_sample[:, :, k])[0]
 				inv_cov_sample[:, :, k] = spl.dpotri(chol_k)[0]
 				for j in range(n_bins):
 					inv_cov_sample[j:, j, k] = inv_cov_sample[j, j:, k]
-				sqrt_cov_det[k] = np.product(np.diagonal(chol_k))
+				ln_cov_det[k] = 2.0 * np.sum(np.log(np.diagonal(chol_k)))
 
-		# reassign classes
-		class_id_sample = np.zeros(n_spectra, dtype=int)
-		if n_classes > 1:
+		# sample multiple-class parameters
+		if n_classes == 1:
+
+			class_id_sample = np.zeros(n_spectra, dtype=int)
+
+		else:
+
+			# update categorical probabilities
+			if rank == 0:
+				n_in_class = np.array([np.sum(class_id_sample == k) for \
+									   k in range(n_classes)])
+				alpha = np.ones(n_classes) + n_in_class
+				class_probs_sample = npr.dirichlet(alpha, 1)[0]
+			else:
+				class_probs_sample = np.zeros(n_classes)
+			if use_mpi:
+				mpi.COMM_WORLD.Bcast(class_probs_sample, root=0)
+
+			# reassign classes
+			class_id_sample = np.zeros(n_spectra, dtype=int)
 			for j in job_lists[rank]:
-				class_probs = np.zeros(n_classes)
+				ln_class_probs_j = np.zeros(n_classes)
 				for k in range(n_classes):
 					delta = spectra_samples[j, :] - mean_sample[:, k]
 					chisq = np.dot(delta, \
 								   np.dot(inv_cov_sample[:, :, k], \
 								   		  delta))
-					class_probs[k] = np.exp(-0.5 * chisq) / \
-									 sqrt_cov_det[k]
-				class_probs /= np.sum(class_probs)
+					ln_class_probs_j[k] = \
+						-(chisq + ln_cov_det[k]) / 2.0 + \
+						np.log(class_probs_sample[k])
+				class_probs_j = np.exp(ln_class_probs_j - \
+									   np.max(ln_class_probs_j))
+				class_probs_j /= np.sum(class_probs_j)
 				class_id_sample[j] = npr.choice(n_classes, \
-												p=class_probs)
+												p=class_probs_j)
 			class_id_sample = complete_array(class_id_sample, use_mpi)
 
 		# calculate WF for each spectrum and use to draw true spectra
