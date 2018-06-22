@@ -3,6 +3,8 @@ import numpy.random as npr
 import numpy.linalg as npl
 import scipy.stats as sps
 import scipy.linalg.lapack as spl
+import scipy.special as spesh
+import itertools as it
 import h5py
 import os
 if 'DISPLAY' not in os.environ.keys():
@@ -154,20 +156,20 @@ cm = mpcm.get_cmap('plasma')
 
 # setup
 use_mpi = True
-constrain = True
+constrain = False
 no_s_inv = False
 sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
-n_spectra = 2000 # 29502
+n_spectra = 200 # 29502
 n_classes = 2
-n_samples = 500 # 1000
+n_samples = 10000 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
-datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+datafile = None # 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = None # 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
@@ -201,7 +203,7 @@ else:
 if constrain:
 	seed = 231014 + rank
 else:
-	seed = npr.randint(231014, 221216, 1)[0]
+	seed = npr.randint(221216, 231014, 1)[0]
 npr.seed(seed)
 
 # assign lists of spectral and class IDs for each MPI process
@@ -282,7 +284,8 @@ if datafile is None:
 				mp.show()
 
 		# assign class membership and generate signals from this model
-		class_ids = npr.choice(n_classes, n_spectra)
+		class_probs = npr.dirichlet(np.ones(n_classes) * 10.0, 1)[0]
+		class_ids = npr.choice(n_classes, n_spectra, p=class_probs)
 		spectra_true = np.zeros((n_spectra, n_bins))
 		for k in range(n_classes):
 			in_class_k = (class_ids == k)
@@ -609,6 +612,7 @@ for j in range(n_spectra):
 		spectra_samples[j, :] = full_data[j, :]
 mean_samples = np.zeros((n_bins, n_classes, n_samples))
 cov_samples = np.zeros((n_bins, n_bins, n_classes, n_samples))
+class_probs_samples = np.zeros((n_classes, n_samples))
 conds = np.zeros((n_classes, n_samples))
 if datafile is not None:
 	full_data = None
@@ -782,6 +786,8 @@ if sample:
 		# store samples (marginalize over true spectra)
 		mean_samples[:, :, i] = mean_sample
 		cov_samples[:, :, :, i] = cov_sample
+		if n_classes > 1:
+			class_probs_samples[:, i] = class_probs_sample
 		for k in range(n_classes):
 			conds[k, i] = npl.cond(cov_sample[:, :, k])
 
@@ -794,6 +800,9 @@ if sample:
 		with h5py.File(io_base + 'samples.h5', 'w') as f:
 			f.create_dataset('mean', data=mean_samples)
 			f.create_dataset('covariance', data=cov_samples)
+			if n_classes > 1:
+				f.create_dataset('class_probs', \
+								 data=class_probs_samples)
 
 else:
 
@@ -803,6 +812,8 @@ else:
 			mean_samples = f['mean'][:]
 			cov_samples = f['covariance'][:]
 			n_bins, n_classes, n_samples = mean_samples.shape
+			if n_classes > 1:
+				class_probs_samples = f['class_probs'][:]
 			n_warmup = n_samples / 4
 
 # reproject compressed mean and covariance samples back onto original
@@ -832,6 +843,32 @@ for k in range(n_classes):
 				np.mean(cov_samples[i, j, k, n_warmup:] / \
 						np.sqrt(cov_samples[i, i, k, n_warmup:] * \
 								cov_samples[j, j, k, n_warmup:]))
+if n_classes > 1:
+	mp_class_probs = np.mean(class_probs_samples, 1)
+	if datafile is None and rank == 0:
+
+		# identify the closest match between true and MP classes
+		# this scales factorially with the number of classes, fyi
+		# might not want to do it.
+		n_perms = int(spesh.factorial(n_classes))
+		chisq = np.zeros(n_perms)
+		perms = list(it.permutations(range(n_classes)))
+		mp_cov_inv = np.zeros((n_bins, n_bins, n_classes))
+		for k in range(n_classes):
+			mp_cov_inv[:, :, k] = npl.inv(mp_cov[:, :, k])
+		for p in range(n_perms):
+			for k in range(n_classes):
+				m = perms[p][k]
+				res = mp_mean[:, m] - mean[:, k]
+				chisq[p] += np.dot(res, np.dot(mp_cov_inv[:, :, k], res))
+		mp_perm = perms[np.argmin(chisq)]
+		print 'best permutation is', mp_perm
+		print 'perms: ', perms
+		print 'chi squares: ', chisq
+
+else:
+	if datafile is None:
+		mp_perm = [0]
 
 # plots
 if rank == 0:
@@ -848,6 +885,21 @@ if rank == 0:
 	mp.savefig(io_base + 'trace.pdf', bbox_inches='tight')
 	mp.close()
 
+	# class probability inference
+	if n_classes > 1:
+		fig, ax = mp.subplots(1, 1, figsize=(8, 5))
+		cols = [cm(x) for x in np.linspace(0.1, 0.9, n_classes)]
+		eval_bins = np.linspace(0.0, 1.0, 50)
+		for k in range(n_classes):
+			pretty_hist(class_probs_samples[k, :], eval_bins, ax, \
+						cols[k])
+			if datafile is None:
+				ax.axvline(class_probs[k], color='k', ls='--')
+		ax.set_xlabel(r'$\pi_i$')
+		ax.set_ylabel(r'${\rm Pr}(\pi_i|d)$')
+		mp.savefig(io_base + 'class_probs.pdf', bbox_inches='tight')
+		mp.close()
+
 	# compare means with reference to noise and posterior standard 
 	# deviations
 	fig, axes = mp.subplots(n_classes, 1, \
@@ -857,7 +909,7 @@ if rank == 0:
 		axes = axis_to_axes(axes)
 	for k in range(n_classes):
 		if datafile is None:
-			res = mp_mean[:, k] - mean[:, k]
+			res = mp_mean[:, mp_perm[k]] - mean[:, k]
 			label = 'residual'
 		else:
 			res = mp_mean[:, k]
@@ -929,10 +981,10 @@ if rank == 0:
 			axes[k, 0].matshow(cov[:, :, k], vmin=-ext_cov, \
 							   vmax=ext_cov, cmap=mpcm.seismic, \
 							   interpolation='nearest')
-			cax = axes[k, 1].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
+			cax = axes[k, 1].matshow(mp_cov[:, :, mp_perm[k]], vmin=-ext_cov, \
 									 vmax=ext_cov, cmap=mpcm.seismic, \
 									 interpolation = 'nearest')
-			axes[k, 2].matshow(mp_cov[:, :, k] - cov[:, :, k], \
+			axes[k, 2].matshow(mp_cov[:, :, mp_perm[k]] - cov[:, :, k], \
 							   vmin=-ext_cov, vmax=ext_cov, \
 							   cmap=mpcm.seismic, \
 							   interpolation='nearest')
@@ -981,10 +1033,10 @@ if rank == 0:
 			axes[k, 0].matshow(cor[:, :, k], vmin=-1.0, \
 							   vmax=1.0, cmap=mpcm.seismic, \
 							   interpolation='nearest')
-			cax = axes[k, 1].matshow(mp_cor[:, :, k], vmin=-1.0, \
+			cax = axes[k, 1].matshow(mp_cor[:, :, mp_perm[k]], vmin=-1.0, \
 									 vmax=1.0, cmap=mpcm.seismic, \
 									 interpolation = 'nearest')
-			axes[k, 2].matshow(mp_cor[:, :, k] - cor[:, :, k], \
+			axes[k, 2].matshow(mp_cor[:, :, mp_perm[k]] - cor[:, :, k], \
 							   vmin=-1.0, vmax=1.0, \
 							   cmap=mpcm.seismic, \
 							   interpolation='nearest')
