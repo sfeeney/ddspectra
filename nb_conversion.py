@@ -105,21 +105,30 @@ def axis_to_axes(axis, transpose=False):
 	return axes
 
 def pretty_hist(data, bins, axis, color, density=False, fill=True, \
-				ls='-', zorder=None):
+				ls='-', zorder=None, label=None):
 
 	hist, bin_edges = np.histogram(data, bins=bins, density=density)
 	bins_to_plot = np.append(bins, bins[-1])
 	hist_to_plot = np.append(np.insert(hist, 0, 0.0), 0.0)
 	if zorder is not None:
-		axis.step(bins_to_plot, hist_to_plot, where='pre', \
-				  color=color, linestyle=ls, zorder=zorder)
+		if label is not None:
+			axis.step(bins_to_plot, hist_to_plot, where='pre', \
+					  color=color, linestyle=ls, zorder=zorder, \
+					  label=label)
+		else:
+			axis.step(bins_to_plot, hist_to_plot, where='pre', \
+					  color=color, linestyle=ls, zorder=zorder)
 		if fill:
 			axis.fill_between(bins_to_plot, hist_to_plot, \
 							  color=color, alpha=0.7, step='pre', \
 							  zorder=zorder)
 	else:
-		axis.step(bins_to_plot, hist_to_plot, where='pre', \
-				  color=color, linestyle=ls)
+		if label is not None:
+			axis.step(bins_to_plot, hist_to_plot, where='pre', \
+					  color=color, linestyle=ls, label=label)
+		else:
+			axis.step(bins_to_plot, hist_to_plot, where='pre', \
+					  color=color, linestyle=ls)
 		if fill:
 			axis.fill_between(bins_to_plot, hist_to_plot, \
 							  color=color, alpha=0.7, step='pre')
@@ -162,9 +171,9 @@ sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
-n_spectra = 200 # 29502
-n_classes = 2
-n_samples = 10000 # 1000
+n_spectra = 500 # 29502
+n_classes = 3
+n_samples = 1000 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
@@ -613,6 +622,8 @@ for j in range(n_spectra):
 mean_samples = np.zeros((n_bins, n_classes, n_samples))
 cov_samples = np.zeros((n_bins, n_bins, n_classes, n_samples))
 class_probs_samples = np.zeros((n_classes, n_samples))
+if n_classes > 1:
+	class_id_samples = np.zeros((n_spectra, n_samples), dtype=int)
 conds = np.zeros((n_classes, n_samples))
 if datafile is not None:
 	full_data = None
@@ -788,6 +799,7 @@ if sample:
 		cov_samples[:, :, :, i] = cov_sample
 		if n_classes > 1:
 			class_probs_samples[:, i] = class_probs_sample
+			class_id_samples[:, i] = class_id_sample
 		for k in range(n_classes):
 			conds[k, i] = npl.cond(cov_sample[:, :, k])
 
@@ -803,6 +815,8 @@ if sample:
 			if n_classes > 1:
 				f.create_dataset('class_probs', \
 								 data=class_probs_samples)
+				f.create_dataset('class_id', \
+								 data=class_id_samples)
 
 else:
 
@@ -814,6 +828,7 @@ else:
 			n_bins, n_classes, n_samples = mean_samples.shape
 			if n_classes > 1:
 				class_probs_samples = f['class_probs'][:]
+				class_id_samples = f['class_id'][:]
 			n_warmup = n_samples / 4
 
 # reproject compressed mean and covariance samples back onto original
@@ -862,9 +877,33 @@ if n_classes > 1:
 				res = mp_mean[:, m] - mean[:, k]
 				chisq[p] += np.dot(res, np.dot(mp_cov_inv[:, :, k], res))
 		mp_perm = perms[np.argmin(chisq)]
+		mp_perm_inv = list(np.argsort(mp_perm))
 		print 'best permutation is', mp_perm
 		print 'perms: ', perms
 		print 'chi squares: ', chisq
+
+	# determine class membership. number of samples of each id gives
+	# the probability of class membership.
+	# these classes have already been converted from sampled classes 
+	# into true classes (if known)
+	if rank == 0:
+		p_class_ids = np.zeros((n_spectra, n_classes))
+		map_class_id = np.zeros(n_spectra, dtype=int)
+		for j in range(n_spectra):
+			classes_sampled, class_counts = \
+				np.unique(class_id_samples[j, :], return_counts=True)
+			for i in range(len(classes_sampled)):
+				if datafile is None:
+					k = mp_perm[classes_sampled[i]]
+				else:
+					k = classes_sampled[i]
+				p_class_ids[j, k] = float(class_counts[i]) / \
+									float(n_samples)
+			map_class_id[j] = np.argmax(p_class_ids[j, :])
+		if datafile is None:
+			correct_class = (map_class_id == class_ids)
+			print '{:d}'.format(np.sum(correct_class)) + \
+				  ' spectra correctly classified'
 
 else:
 	if datafile is None:
@@ -898,6 +937,29 @@ if rank == 0:
 		ax.set_xlabel(r'$\pi_i$')
 		ax.set_ylabel(r'${\rm Pr}(\pi_i|d)$')
 		mp.savefig(io_base + 'class_probs.pdf', bbox_inches='tight')
+		mp.close()
+
+	# class membership inference
+	if n_classes > 1:
+		fig, axes = mp.subplots(n_classes, 1, figsize=(5, 5 * n_classes))
+		cols = [cm(x) for x in np.linspace(0.1, 0.9, 3)]
+		eval_bins = np.linspace(0.0, 1.0, 50)
+		for k in range(n_classes):
+			pretty_hist(p_class_ids[:, k], eval_bins, axes[k], \
+						cols[0], label='all')
+			matches = (map_class_id == k)
+			pretty_hist(p_class_ids[matches, k], eval_bins, axes[k], \
+						cols[1], label='inferred class members')
+			if datafile is None:
+				matches = (class_ids == k)
+				pretty_hist(p_class_ids[matches, k], eval_bins, axes[k], \
+							cols[2], label='true class members')
+			axes[k].set_xlabel(r'${\rm Pr(k=' + '{:d}'.format(k) + \
+							   r')}$', fontsize=14)
+			axes[k].set_ylabel(r'${\rm N[Pr(k=' + '{:d}'.format(k) + \
+							   r')]}$', fontsize=14)
+			axes[k].legend(loc='upper center', fontsize=12)
+		mp.savefig(io_base + 'class_ids.pdf', bbox_inches='tight')
 		mp.close()
 
 	# compare means with reference to noise and posterior standard 
