@@ -165,21 +165,22 @@ cm = mpcm.get_cmap('plasma')
 
 # setup
 use_mpi = True
+recovery_test = True
 constrain = False
 no_s_inv = False
 sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
-n_spectra = 500 # 29502
-n_classes = 3
-n_samples = 1000 # 1000
+n_spectra = 29502
+n_classes = 1
+n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
-datafile = None # 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = None # 'data/centers_subset2.txt' # filename or None
+datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+window = 'data/centers_subset2.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -200,6 +201,11 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if recovery_test:
+	io_base += 'rec_test_'
+	i_rec_test = 0
+	j_rec_test_lo = 10
+	j_rec_test_hi = 30
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -453,6 +459,18 @@ else:
 			else:
 				break
 
+		# optionally mask a section of one star's spectrum 
+		# artificially to test method. store complete input spectrum
+		# for comparison
+		if recovery_test:
+
+			rec_test_data = np.zeros(n_bins)
+			rec_test_var_noise = np.zeros(n_bins)
+			rec_test_data[:] = data[i_rec_test, :]
+			rec_test_var_noise[:] = var_noise[i_rec_test, :]
+			data[i_rec_test, j_rec_test_lo: j_rec_test_hi] = 1.0
+			var_noise[i_rec_test, j_rec_test_lo: j_rec_test_hi] = 4.0e6
+
 		# optionally inpaint masked regions with masked mean to 
 		# improve PCA
 		full_data = np.zeros((n_spectra, n_bins))
@@ -628,6 +646,9 @@ conds = np.zeros((n_classes, n_samples))
 if datafile is not None:
 	full_data = None
 
+if recovery_test and rank == 0:
+	rec_test_samples = np.zeros((n_bins, n_samples))
+
 # Gibbs sample!
 if sample:
 
@@ -802,6 +823,8 @@ if sample:
 			class_id_samples[:, i] = class_id_sample
 		for k in range(n_classes):
 			conds[k, i] = npl.cond(cov_sample[:, :, k])
+		if recovery_test and rank == 0:
+			rec_test_samples[:, i] = spectra_samples[i_rec_test, :]
 
 		# report if desired
 		if diagnose and rank == 0:
@@ -817,6 +840,9 @@ if sample:
 								 data=class_probs_samples)
 				f.create_dataset('class_id', \
 								 data=class_id_samples)
+			if recovery_test:
+				f.create_dataset('rec_test', \
+								 data=rec_test_samples)
 
 else:
 
@@ -829,6 +855,8 @@ else:
 			if n_classes > 1:
 				class_probs_samples = f['class_probs'][:]
 				class_id_samples = f['class_id'][:]
+			if recovery_test:
+				rec_test_samples = f['rec_test'][:]
 			n_warmup = n_samples / 4
 
 # reproject compressed mean and covariance samples back onto original
@@ -911,6 +939,24 @@ else:
 
 # plots
 if rank == 0:
+
+	# quick recovery test plot
+	if recovery_test:
+		rec_test_mean = np.mean(rec_test_samples[:, n_warmup:], -1)
+		rec_test_std = np.std(rec_test_samples[:, n_warmup:], -1)
+		mp.fill_between(wl, rec_test_mean + rec_test_std, \
+							rec_test_mean - rec_test_std, \
+						color='LightGrey')
+		mp.plot(wl, rec_test_data, 'k')
+		mp.plot(wl, data[i_rec_test, :], 'r--')
+		mp.axvline(wl[j_rec_test_lo], color='Grey', ls=':')
+		mp.axvline(wl[j_rec_test_hi], color='Grey', ls=':')
+		mp.xlabel(r'${\rm index}\,(i)$')
+		mp.ylabel(r'${\rm flux}$')
+		mp.savefig(io_base + 'recovery.pdf', bbox_inches='tight')
+		mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
+		mp.savefig(io_base + 'recovery_zoom.pdf', bbox_inches='tight')
+		mp.close()
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
