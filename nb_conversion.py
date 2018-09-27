@@ -165,7 +165,7 @@ cm = mpcm.get_cmap('plasma')
 
 # setup
 use_mpi = True
-recovery_test = True
+recovery_test = False
 constrain = False
 no_s_inv = False
 sample = True
@@ -181,6 +181,7 @@ jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2.txt' # filename or None
+save_spectra = 'data/ids_lowest_10_snr.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -519,6 +520,11 @@ else:
 			mp.savefig(io_base + 'apogee_inputs.pdf', \
 					   bbox_inches='tight')
 			mp.show()
+
+		# read in IDs of spectra for which to save samples
+		if save_spectra is not None:
+			save_spectra_ids = np.genfromtxt(save_spectra).astype(int)
+			n_save_spectra = len(save_spectra_ids)
 	
 	'''
 	# ensure all processes have same data
@@ -645,9 +651,11 @@ if n_classes > 1:
 conds = np.zeros((n_classes, n_samples))
 if datafile is not None:
 	full_data = None
-
 if recovery_test and rank == 0:
 	rec_test_samples = np.zeros((n_bins, n_samples))
+if save_spectra is not None and rank == 0:
+	save_spectra_samples = np.zeros((n_save_spectra, n_bins, \
+									 n_samples))
 
 # Gibbs sample!
 if sample:
@@ -825,6 +833,10 @@ if sample:
 			conds[k, i] = npl.cond(cov_sample[:, :, k])
 		if recovery_test and rank == 0:
 			rec_test_samples[:, i] = spectra_samples[i_rec_test, :]
+		if save_spectra is not None and rank == 0:
+			for k in range(n_save_spectra):
+				save_spectra_samples[k, :, i] = \
+					spectra_samples[save_spectra_ids[k], :]
 
 		# report if desired
 		if diagnose and rank == 0:
@@ -843,6 +855,9 @@ if sample:
 			if recovery_test:
 				f.create_dataset('rec_test', \
 								 data=rec_test_samples)
+			if save_spectra is not None:
+				f.create_dataset('save_spectra_samples', \
+								 data=save_spectra_samples)
 
 else:
 
@@ -857,6 +872,8 @@ else:
 				class_id_samples = f['class_id'][:]
 			if recovery_test:
 				rec_test_samples = f['rec_test'][:]
+			if save_spectra is not None:
+				save_spectra_samples = f['save_spectra_samples'][:]
 			n_warmup = n_samples / 4
 
 # reproject compressed mean and covariance samples back onto original
