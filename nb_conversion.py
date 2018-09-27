@@ -855,7 +855,11 @@ if sample:
 			if recovery_test:
 				f.create_dataset('rec_test', \
 								 data=rec_test_samples)
-			if save_spectra is not None:
+		if save_spectra is not None:
+			with h5py.File(io_base + 'save_spectra_samples.h5', \
+						   'w') as f:
+				f.create_dataset('save_spectra', \
+								 data=save_spectra)
 				f.create_dataset('save_spectra_samples', \
 								 data=save_spectra_samples)
 
@@ -872,9 +876,12 @@ else:
 				class_id_samples = f['class_id'][:]
 			if recovery_test:
 				rec_test_samples = f['rec_test'][:]
-			if save_spectra is not None:
-				save_spectra_samples = f['save_spectra_samples'][:]
 			n_warmup = n_samples / 4
+		if save_spectra is not None:
+			with h5py.File(io_base + \
+						   'save_spectra_samples.h5', 'r') as f:
+				save_spectra = str(f['save_spectra'][...])
+				save_spectra_samples = f['save_spectra_samples'][:]
 
 # reproject compressed mean and covariance samples back onto original
 # spectral bins
