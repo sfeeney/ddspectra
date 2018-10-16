@@ -168,20 +168,20 @@ use_mpi = True
 recovery_test = False
 constrain = False
 no_s_inv = False
-sample = False
+sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
 n_spectra = 29502
-n_classes = 5
+n_classes = 2
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
-jeffreys_prior = 1
+jeffreys_prior = 0
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2_ce_nd.txt' # filename or None
-save_spectra = 'data/ids_ce_nd_1_fully_masked.txt' # filename or None
+save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -202,7 +202,7 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
-if not jeffreys_prior:
+if jeffreys_prior == 0:
 	io_base += 'no_jp_'
 if recovery_test:
 	io_base += 'rec_test_'
