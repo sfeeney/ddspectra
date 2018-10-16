@@ -173,15 +173,15 @@ precompress = False
 inpaint = False
 n_bins = 7 # 50
 n_spectra = 29502
-n_classes = 1
+n_classes = 5
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = 'data/centers_subset2.txt' # filename or None
-save_spectra = 'data/ids_lowest_10_snr.txt' # filename or None
+window = 'data/centers_subset2_ce_nd.txt' # filename or None
+save_spectra = 'data/ids_ce_nd_1_fully_masked.txt' # filename or None
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -202,6 +202,8 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if not jeffreys_prior:
+	io_base += 'no_jp_'
 if recovery_test:
 	io_base += 'rec_test_'
 	i_rec_test = 0
@@ -1025,7 +1027,6 @@ if rank == 0:
 		fig.subplots_adjust(hspace=0, wspace=0)
 		mp.savefig(io_base + 'save_spectra.pdf', bbox_inches='tight')
 		mp.close()
-		exit()
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
@@ -1344,7 +1345,7 @@ if rank == 0:
 		axes[k, 1].set_title('Mean Posterior (rank ' + \
 							 '{:d})'.format(n_eval_sig[k]))
 		axes[k, 2].set_title(r'Residual')
-		for i in range(len(axes)):
+		for i in range(len(axes[k, :])):
 			axes[k, i].tick_params(axis='both', which='both', \
 								   bottom='off', top='off', \
 								   labeltop='off', right='off', \
