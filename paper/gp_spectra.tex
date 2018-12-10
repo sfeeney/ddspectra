@@ -121,22 +121,28 @@ Even more stuff.
         Si & 15365.335 & 15964.753 \\
         Ti & 15190.779 & 15339.241 \\
         Ce & 15789.063 & 16380.954 \\
-        Nd & 16058.014 & \\
+        Nd & 16058.014 & - \\
         \hline
     \end{tabular}
 \end{table}
 
+\begin{figure}
+	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_rec_test_recovery_zoom.pdf}
+    \caption{Recovery test. Artificially masking the 15789 \AA\ Cerium window (indicated by vertical dotted lines) for the lowest-SNR star results in a model prediction (dark-grey shaded region) that is entirely in agreement with the measured spectrum (solid black line) once measurement uncertainties are taken into account (light-grey shaded region).}
+    \label{fig:nd_information}
+\end{figure}
+
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_inf_gain.pdf}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_conditional_stddevs.pdf}
-    \caption{Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows.}
+    \caption{Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black.}
     \label{fig:ce_information}
 \end{figure*}
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_nd_inf_gain.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_nd_conditional_stddevs.pdf}
-    \caption{Information gain (top) and conditional standard deviation (bottom) for Neodymium window given observations of other elemental windows.}
+    \caption{Information gain (top) and conditional standard deviation (bottom) for Neodymium window given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black.}
     \label{fig:nd_information}
 \end{figure}
 

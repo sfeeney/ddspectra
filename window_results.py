@@ -145,7 +145,7 @@ window = 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = None # 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 eval_thresh = 1.0e-4
 n_gp_reals = 50
-recovery_test = True
+recovery_test = False
 if recovery_test:
 	i_rec_test = 21495
 	j_rec_test_lo = 375 # included
@@ -372,12 +372,13 @@ if recovery_test:
 	mp.axvline(wl[j_rec_test_hi - 1], color='Grey', ls=':')
 	mp.xlabel(r'${\rm index}\,(i)$')
 	mp.ylabel(r'${\rm flux}$')
+	mp.xlim(wl[0], wl[-1])
+	mp.ylim(0.5, 1.2)
 	mp.savefig(io_base + 'recovery.pdf', bbox_inches='tight')
 	mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
 	mp.ylim(0.8, 1.2)
 	mp.savefig(io_base + 'recovery_zoom.pdf', bbox_inches='tight')
 	mp.close()
-	exit()
 
 # summarize saved spectra
 if save_spectra is not None:
@@ -613,15 +614,15 @@ for tgt in tgts:
 				# iteratively find most predictive other window
 				tot_inf_gain = []
 				most_pred_w = []
-				stddev = []
+				cond_stddev = []
 				for j in range(n_windows - 1):
 
 					# others is a list of the windows that are
 					# 1) not being predicted and
 					# 2) not already in the best predictors list
 					inf_gain = np.zeros(n_windows)
-					stddevs = np.zeros((n_in_bin[tgt_windows[i]], \
-										n_windows))
+					cond_stddevs = np.zeros((n_in_bin[tgt_windows[i]], \
+											 n_windows))
 					others = np.setdiff1d(range(n_windows), most_pred_w)
 					others = np.setdiff1d(others, [tgt_windows[i]])
 
@@ -642,13 +643,13 @@ for tgt in tgts:
 						inf_gain[w] = \
 							np.log(npl.det(cond_cov)) - \
 							np.log(npl.det(s_oo))
-						stddevs[:, w] = np.sqrt(np.diag(cond_cov))
+						cond_stddevs[:, w] = np.sqrt(np.diag(cond_cov))
 
 					# find most predictive window
 					i_mig = np.argsort(inf_gain)
 					tot_inf_gain.append(inf_gain[i_mig[0]])
 					most_pred_w.append(i_mig[0])
-					stddev.append(stddevs[:, i_mig[0]])
+					cond_stddev.append(cond_stddevs[:, i_mig[0]])
 
 				# plot information gains!
 				cm = mpcm.get_cmap('plasma')
@@ -677,14 +678,18 @@ for tgt in tgts:
 										wl_end[tgt_windows[i]]))
 				x = np.linspace(wl_begin[tgt_windows[i]], \
 								wl_end[tgt_windows[i]], \
-								len(stddev[j])) - x_bar
-				for j in range(len(stddev)):
-					ax.plot(x, stddev[j], color=cols[j])
+								len(cond_stddev[j])) - x_bar
+				full_stddev = np.sqrt(np.diag(s_oo))
+				ax.plot(x, full_stddev, color='k')
+				for j in range(len(cond_stddev)):
+					ax.plot(x, cond_stddev[j], color=cols[j])
 				ax.set_xlabel(r'$\lambda-' + '{:5d}'.format(int(x_bar)) + \
 							  r'\,[{\rm Angstroms}]$')
 				ax.set_ylabel(r'$\sigma$')
 				ax.set_xlim(wl_begin[tgt_windows[i]] - x_bar, \
 							wl_end[tgt_windows[i]] - x_bar)
+				ax.set_ylim(0.99 * np.min(cond_stddev), \
+							1.01 * np.max(full_stddev))
 
 		# finish off plots
 		fig.subplots_adjust(hspace=0)
