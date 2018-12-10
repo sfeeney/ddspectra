@@ -207,8 +207,8 @@ if jeffreys_prior == 0:
 if recovery_test:
 	io_base += 'rec_test_'
 	i_rec_test = 21495
-	j_rec_test_lo = 376
-	j_rec_test_hi = 398
+	j_rec_test_lo = 375 # included
+	j_rec_test_hi = 398 # not included
 
 
 # set up identical within-chain MPI processes
@@ -967,67 +967,6 @@ else:
 
 # plots
 if rank == 0:
-
-	# quick recovery test plot
-	if recovery_test:
-		rec_test_mean = np.mean(rec_test_samples[:, n_warmup:], -1)
-		rec_test_std = np.std(rec_test_samples[:, n_warmup:], -1)
-		mp.fill_between(wl, rec_test_mean + rec_test_std, \
-							rec_test_mean - rec_test_std, \
-						color='LightGrey')
-		mp.plot(wl, rec_test_data, 'k')
-		mp.plot(wl, data[i_rec_test, :], 'r--')
-		mp.axvline(wl[j_rec_test_lo], color='Grey', ls=':')
-		mp.axvline(wl[j_rec_test_hi], color='Grey', ls=':')
-		mp.xlabel(r'${\rm index}\,(i)$')
-		mp.ylabel(r'${\rm flux}$')
-		mp.savefig(io_base + 'recovery.pdf', bbox_inches='tight')
-		mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
-		mp.savefig(io_base + 'recovery_zoom.pdf', bbox_inches='tight')
-		mp.close()
-
-	# summarize saved spectra
-	if save_spectra is not None:
-		fig, axes = mp.subplots(n_save_spectra, 1, \
-								figsize=(16, 5 * n_save_spectra), \
-								sharex=True)
-		for i in range(n_save_spectra):
-			#save_spectra_samples = np.zeros((n_save_spectra, n_bins, \
-			#							 n_samples))
-			d_mean = data[save_spectra_ids[i], :]
-			d_std = np.sqrt(var_noise[save_spectra_ids[i], :])
-			s_mean = np.mean(save_spectra_samples[i, :, n_warmup:], -1)
-			s_std = np.std(save_spectra_samples[i, :, n_warmup:], -1)
-			#axes[i].plot(wl, d_mean, 'r')
-			#axes[i].plot(wl, s_mean, 'LightGrey')
-			axes[i].fill_between(wl, d_mean + d_std, d_mean - d_std, \
-								 color='r', alpha=0.5)
-			axes[i].fill_between(wl, s_mean + s_std, s_mean - s_std, \
-								 color='Grey', alpha=0.7)
-			axes[i].set_xlabel(r'${\rm index}\,(i)$')
-			axes[i].set_ylabel(r'${\rm flux}$')
-			axes[i].set_xlim(wl[0], wl[-1])
-			axes[i].set_ylim(0.5, 1.3)
-			if i > 0:
-				axes[i].set_yticklabels(axes[i].get_yticks())
-				labels = axes[i].get_yticklabels()
-				labels[-1] = ''
-				axes[i].set_yticklabels(labels)
-			if datafile is not None and window:
-				y_pos = axes[i].get_ylim()[0]
-				for j in range(n_windows):
-					if j == 0:
-						x_pos = wendices[j] / 2.0
-					else:
-						x_pos = (wendices[j] + wendices[j - 1]) / 2.0
-					axes[i].axvline(wendices[j], color='k', lw=0.5, \
-									ls=':')
-					axes[i].text(x_pos, y_pos, wlabels[j], \
-								 fontsize=8, ha='center', \
-								 va='bottom')
-		fig.subplots_adjust(hspace=0, wspace=0)
-		mp.savefig(io_base + 'save_spectra.pdf', bbox_inches='tight')
-		mp.close()
 
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)

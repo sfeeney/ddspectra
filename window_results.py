@@ -142,7 +142,14 @@ n_samples = 10000 # 1000
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2_ce_nd.txt' # filename or None
+save_spectra = None # 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 eval_thresh = 1.0e-4
+n_gp_reals = 50
+recovery_test = True
+if recovery_test:
+	i_rec_test = 21495
+	j_rec_test_lo = 375 # included
+	j_rec_test_hi = 398 # not included
 
 # build up output filename
 if datafile is None:
@@ -160,10 +167,15 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if recovery_test:
+	io_base += 'rec_test_'
 
-
-# retrieve wavelengths
-n_to_load = 1
+# data may be distributed over multiple input files. if we're 
+# windowing we don't know a priori how many spectral bins are
+# going to be selected. read in the first datafile and 
+# perform this windowing to ensure we can broadcast to other 
+# processes
+n_to_load = n_spectra
 n_file = 1
 wl, full_data = read_spectra(n_to_load, \
 							 datafile.format(n_file), \
@@ -214,6 +226,61 @@ for i in range(n_windows):
 n_in_bin = np.append(wendices[0], np.diff(wendices))
 wl = np.arange(n_bins)
 
+# select data
+data = np.zeros((n_spectra, n_bins))
+var_noise = np.zeros((n_spectra, n_bins))
+n_loaded = 0
+while True:
+
+	# load in existing data
+	n_in_file = full_data.shape[1]
+	data[n_loaded: n_loaded + n_in_file, :] = \
+		full_data[windices, :, 0].T
+	var_noise[n_loaded: n_loaded + n_in_file, :] = \
+		full_data[windices, :, 1].T ** 2
+	#for i in range(n_loaded, n_loaded + n_in_file):
+	#	inv_cov_noise[i, :, :] = np.diag(1.0 / var_noise[i, :])
+	n_to_load -= n_in_file
+	n_loaded += n_in_file
+
+	# search for more data if needed
+	if n_to_load > 0:
+		n_file += 1
+		full_data = read_spectra(n_to_load, \
+								 datafile.format(n_file))
+	else:
+		break
+
+# optionally mask a section of one star's spectrum 
+# artificially to test method. store complete input spectrum
+# for comparison
+if recovery_test:
+
+	rec_test_data = np.zeros(n_bins)
+	rec_test_var_noise = np.zeros(n_bins)
+	rec_test_data[:] = data[i_rec_test, :]
+	rec_test_var_noise[:] = var_noise[i_rec_test, :]
+	data[i_rec_test, j_rec_test_lo: j_rec_test_hi] = 1.0
+	var_noise[i_rec_test, j_rec_test_lo: j_rec_test_hi] = 4.0e6
+
+# optionally inpaint masked regions with masked mean to 
+# improve PCA
+full_data = np.zeros((n_spectra, n_bins))
+if inpaint:
+	masked = np.sqrt(var_noise) > 1000.0
+	masked_mean = (np.sum(data, 0) - np.sum(masked, 0)) / \
+				  np.sum(~masked, 0)
+	for i in range(n_spectra):
+		full_data[i, ~masked[i, :]] = data[i, ~masked[i, :]]
+		full_data[i, masked[i, :]] = masked_mean[masked[i, :]]
+else:
+	full_data[:, :] = data[:, :]
+
+# read in IDs of spectra for which to save samples
+if save_spectra is not None:
+	save_spectra_ids = np.genfromtxt(save_spectra).astype(int)
+	n_save_spectra = len(save_spectra_ids)
+
 # retrieve samples
 with h5py.File(io_base + 'samples.h5', 'r') as f:
 	mean_samples = f['mean'][:]
@@ -221,7 +288,16 @@ with h5py.File(io_base + 'samples.h5', 'r') as f:
 	n_bins, n_classes, n_samples = mean_samples.shape
 	if n_classes > 1:
 		class_probs_samples = f['class_probs'][:]
+		class_id_samples = f['class_id'][:]
+	if recovery_test:
+		rec_test_samples = f['rec_test'][:]
 	n_warmup = n_samples / 4
+if save_spectra is not None:
+	with h5py.File(io_base + \
+				   'save_spectra_samples.h5', 'r') as f:
+		save_spectra = str(f['save_spectra'][...])
+		save_spectra_samples = f['save_spectra_samples'][:]
+		n_save_spectra = save_spectra_samples.shape[0]
 
 # reproject compressed mean and covariance samples back onto original
 # spectral bins
@@ -276,6 +352,75 @@ if n_classes > 1:
 else:
 	if datafile is None:
 		mp_perm = [0]
+
+# quick recovery test plot. dotted lines indicate full extent of inpainted
+# region
+if recovery_test:
+	rec_test_mean = np.mean(rec_test_samples[:, n_warmup:], -1)
+	rec_test_std = np.std(rec_test_samples[:, n_warmup:], -1)
+	rec_test_std_tot = np.sqrt(rec_test_std ** 2 + rec_test_var_noise)
+	mp.fill_between(wl, rec_test_mean + rec_test_std_tot, \
+						rec_test_mean - rec_test_std_tot, \
+					color='LightGrey')
+	mp.fill_between(wl, rec_test_mean + rec_test_std, \
+						rec_test_mean - rec_test_std, \
+					color='DarkGrey')
+	mp.plot(wl, rec_test_data, 'k')
+	#mp.errorbar(wl, rec_test_data, yerr=np.sqrt(rec_test_var_noise))
+	mp.plot(wl, data[i_rec_test, :], 'k--')
+	mp.axvline(wl[j_rec_test_lo], color='Grey', ls=':')
+	mp.axvline(wl[j_rec_test_hi - 1], color='Grey', ls=':')
+	mp.xlabel(r'${\rm index}\,(i)$')
+	mp.ylabel(r'${\rm flux}$')
+	mp.savefig(io_base + 'recovery.pdf', bbox_inches='tight')
+	mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
+	mp.ylim(0.8, 1.2)
+	mp.savefig(io_base + 'recovery_zoom.pdf', bbox_inches='tight')
+	mp.close()
+	exit()
+
+# summarize saved spectra
+if save_spectra is not None:
+	fig, axes = mp.subplots(n_save_spectra, 1, \
+							figsize=(16, 5 * n_save_spectra), \
+							sharex=True)
+	for i in range(n_save_spectra):
+		#save_spectra_samples = np.zeros((n_save_spectra, n_bins, \
+		#							 n_samples))
+		d_mean = data[save_spectra_ids[i], :]
+		d_std = np.sqrt(var_noise[save_spectra_ids[i], :])
+		s_mean = np.mean(save_spectra_samples[i, :, n_warmup:], -1)
+		s_std = np.std(save_spectra_samples[i, :, n_warmup:], -1)
+		#axes[i].plot(wl, d_mean, 'r')
+		#axes[i].plot(wl, s_mean, 'LightGrey')
+		axes[i].fill_between(wl, d_mean + d_std, d_mean - d_std, \
+							 color='r', alpha=0.5)
+		axes[i].fill_between(wl, s_mean + s_std, s_mean - s_std, \
+							 color='Grey', alpha=0.7)
+		axes[i].set_xlabel(r'${\rm index}\,(i)$')
+		axes[i].set_ylabel(r'${\rm flux}$')
+		axes[i].set_xlim(wl[0], wl[-1])
+		axes[i].set_ylim(0.5, 1.3)
+		if i > 0:
+			axes[i].set_yticklabels(axes[i].get_yticks())
+			labels = axes[i].get_yticklabels()
+			labels[-1] = ''
+			axes[i].set_yticklabels(labels)
+		if datafile is not None and window:
+			y_pos = axes[i].get_ylim()[0]
+			for j in range(n_windows):
+				if j == 0:
+					x_pos = wendices[j] / 2.0
+				else:
+					x_pos = (wendices[j] + wendices[j - 1]) / 2.0
+				axes[i].axvline(wendices[j], color='k', lw=0.5, \
+								ls=':')
+				axes[i].text(x_pos, y_pos, wlabels[j], \
+							 fontsize=8, ha='center', \
+							 va='bottom')
+	fig.subplots_adjust(hspace=0, wspace=0)
+	mp.savefig(io_base + 'save_spectra.pdf', bbox_inches='tight')
+	mp.close()
 
 # conditional variance plots: which features best predict others?
 # this might produce the most gigantic plots ever...
