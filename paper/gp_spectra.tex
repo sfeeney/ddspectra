@@ -128,9 +128,21 @@ Even more stuff.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_rec_test_recovery_zoom.pdf}
-    \caption{Recovery test. Artificially masking the 15789 \AA\ Cerium window (indicated by vertical dotted lines) for the lowest-SNR star results in a model prediction (dark-grey shaded region) that is entirely in agreement with the measured spectrum (solid black line) once measurement uncertainties are taken into account (light-grey shaded region).}
-    \label{fig:nd_information}
+    \caption{Recovery test. Artificially masking the 15789 \AA\ Cerium window (indicated by vertical dotted lines) for the lowest-SNR star results in an inferred true spectrum (dark-grey shaded region) that is entirely in agreement with the measurement (solid black line) once noise is taken into account (light-grey shaded region).}
+    \label{fig:recovery_test}
 \end{figure}
+
+\begin{figure*}
+	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_low_rank_covariance.pdf}
+    \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right).}
+    \label{fig:inferred_cov}
+\end{figure*}
+
+\begin{figure*}
+	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_save_spectra.pdf}
+    \caption{Observed spectra (pink shaded regions) and inferred ``true'' spectra (grey shaded regions) for six interesting examples illustrating our ability to inpaint and denoise. From top: two spectra with the 15789 \AA\ Cerium window fully masked; two spectra with the 16058 \AA\ Neodymium window fully masked; the two lowest signal-to-noise spectra.}
+    \label{fig:inpainting_denoising_examples}
+\end{figure*}
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_inf_gain.pdf}

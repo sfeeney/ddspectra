@@ -142,7 +142,8 @@ n_samples = 10000 # 1000
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_subset2_ce_nd.txt' # filename or None
-save_spectra = None # 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+minimal_save_spectra = True
 eval_thresh = 1.0e-4
 n_gp_reals = 50
 recovery_test = False
@@ -382,18 +383,27 @@ if recovery_test:
 
 # summarize saved spectra
 if save_spectra is not None:
+
+	# trim down number to plot if desired
+	if minimal_save_spectra:
+		if save_spectra == \
+			'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt':
+			ids = np.array([0, 1, 86, 87, 129, 130])
+		else:
+			ids = npr.choice(n_save_spectra, size=6, replace=False)
+		n_save_spectra = ids.shape[0]
+	else:
+		ids = range(n_save_spectra)
+
+	# plot!
 	fig, axes = mp.subplots(n_save_spectra, 1, \
-							figsize=(16, 5 * n_save_spectra), \
+							figsize=(16, 3 * n_save_spectra), \
 							sharex=True)
 	for i in range(n_save_spectra):
-		#save_spectra_samples = np.zeros((n_save_spectra, n_bins, \
-		#							 n_samples))
-		d_mean = data[save_spectra_ids[i], :]
-		d_std = np.sqrt(var_noise[save_spectra_ids[i], :])
-		s_mean = np.mean(save_spectra_samples[i, :, n_warmup:], -1)
-		s_std = np.std(save_spectra_samples[i, :, n_warmup:], -1)
-		#axes[i].plot(wl, d_mean, 'r')
-		#axes[i].plot(wl, s_mean, 'LightGrey')
+		d_mean = data[save_spectra_ids[ids[i]], :]
+		d_std = np.sqrt(var_noise[save_spectra_ids[ids[i]], :])
+		s_mean = np.mean(save_spectra_samples[ids[i], :, n_warmup:], -1)
+		s_std = np.std(save_spectra_samples[ids[i], :, n_warmup:], -1)
 		axes[i].fill_between(wl, d_mean + d_std, d_mean - d_std, \
 							 color='r', alpha=0.5)
 		axes[i].fill_between(wl, s_mean + s_std, s_mean - s_std, \
@@ -401,9 +411,10 @@ if save_spectra is not None:
 		axes[i].set_xlabel(r'${\rm index}\,(i)$')
 		axes[i].set_ylabel(r'${\rm flux}$')
 		axes[i].set_xlim(wl[0], wl[-1])
-		axes[i].set_ylim(0.5, 1.3)
+		axes[i].set_ylim(0.6, 1.2)
 		if i > 0:
-			axes[i].set_yticklabels(axes[i].get_yticks())
+			yticklabels = ['{:3.1f}'.format(t) for t in axes[i].get_yticks()]
+			axes[i].set_yticklabels(yticklabels)
 			labels = axes[i].get_yticklabels()
 			labels[-1] = ''
 			axes[i].set_yticklabels(labels)
@@ -417,7 +428,7 @@ if save_spectra is not None:
 				axes[i].axvline(wendices[j], color='k', lw=0.5, \
 								ls=':')
 				axes[i].text(x_pos, y_pos, wlabels[j], \
-							 fontsize=8, ha='center', \
+							 fontsize=12, ha='center', \
 							 va='bottom')
 	fig.subplots_adjust(hspace=0, wspace=0)
 	mp.savefig(io_base + 'save_spectra.pdf', bbox_inches='tight')
