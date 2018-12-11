@@ -30,6 +30,21 @@
 \usepackage{graphicx}	% Including figure files
 \usepackage{amsmath}	% Advanced maths commands
 \usepackage{amssymb}	% Extra maths symbols
+\usepackage{bm}
+
+\newcommand{\nb}{n_{\rm b}}
+\newcommand{\prob}{{\rm P}}
+\newcommand{\normal}{{\rm{N}}}
+\newcommand{\uniform}{{\rm U}}
+\newcommand{\dirichlet}{{\rm D}}
+\newcommand{\specmean}{{\bm m}}
+\newcommand{\speccov}{{\bm \Sigma}}
+\newcommand{\classprob}{{p}}
+\newcommand{\classprobs}{{\bm p}}
+\newcommand{\objspec}{{\bm s}}
+\newcommand{\objclass}{{\kappa}}
+\newcommand{\objdata}{\hat{\bm d}}
+\newcommand{\objnoise}{{\bm N}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -78,13 +93,24 @@ keyword1 -- keyword2 -- keyword3
 
 \section{Introduction}
 
-Stuff.
+Motivations/goals. By pooling information about stars we can:
+\begin{enumerate}
+\item Denoise to avoid excessively harsh signal-to-noise cuts. What is the current minimum S/N considered useful?
+\item Inpaint masked regions of spectra to make, e.g., abundance measurements that would otherwise be impossible.
+\item Determine the most informative regions of spectra to, e.g., determine whether we can retain sensitivity to abundances by observing a reduced spectral range.
+\end{enumerate}
+
+How will we do this? By modeling the spectra as a data-driven Gaussian Process. What is a GP and what are relevant applications.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Methods}
 
-More stuff.
+Describe Gaussian Process. True spectrum for each star is drawn from a GP with a mean spectrum and covariance matrix to be inferred from the data. We do not assume a kernel for our GP covariance, but rather infer the correlations between the observed spectral bins. This is so we can model the exact covariance and not worry about suboptimal choices of kernels caused by non-stationarity or different correlation lengths, line shapes, etc. The main downside of doing this is we can not make predictions for the spectra between the observed bins, though we could, given data observed on shifted or irregularly or different-spaced grids. We assume uninformative priors on the mean and covariance. We adopt an infinite uniform prior on the mean and a Jeffreys prior on the covariance matrix (precise form in notes).
+
+Data are observed with Gaussian noise that is uncorrelated between spectral bins; masked pixels are assigned unit flux and effectively infinite noise uncertainties. These data, the inferred parameters, the likelihood and priors would fully specify the model if we had only one class. To account for the fact that the red clump might consist of multiple distinct populations (or one population whose distribution of true spectra is non-Gaussian) we allow for multiple classes to exist in our model. In this instance, each star is also assigned membership to a particular class. Class memberships are drawn from categorical distributions, with class probabilities drawn from a symmetric Dirichlet prior with concentration parameter $\alpha=1$.
+
+The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fig:network_diagram}, and the probability distributions defining each link are set out in Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each latent variable to be written analytically, and we hence use Gibbs sampling to estimate the joint posterior.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{bhm_plot.pdf}
@@ -92,11 +118,35 @@ More stuff.
     \label{fig:network_diagram}
 \end{figure}
 
+\begin{table*}
+    \centering
+    \caption{Priors, likelihoods and conditional distributions for Gibbs sampling.}
+    \label{tab:prob_dists}
+    \begin{tabular}{lll}
+        \hline
+        distribution & form & process \\
+        \hline
+        $\prob(\specmean_k)$ & $\uniform(-\infty,\infty)$ & Prior on $k^{\rm th}$ class's mean spectrum \\
+        $\prob(\speccov_k)$ & $|\speccov|^{-(\nb+1)/2}$ & Prior on $k^{\rm th}$ class's spectrum covariance \\
+        $\prob(\classprobs|\alpha)$ & $\dirichlet(\alpha)$ & Prior on class probabilities \\
+        $\prob(\objspec_i|\specmean,\speccov,\objclass_i)$ & $\normal(\specmean_{k=\objclass_i},\speccov_{k=\objclass_i})$ & $i^{\rm th}$ object's spectrum as Gaussian Process \\
+        $\prob(\objclass_i|\classprobs)$ & $\classprob_k$ & $i^{\rm th}$ object's class membership \\
+        $\prob(\objdata_i|\objspec_i,\objnoise_i)$ & $\normal(\objspec_i,\objnoise_i)$ & Noisy, masked spectral measurements \\
+        \hline
+        $\prob()$ &  & Conditional on $k^{\rm th}$ class's mean spectrum \\
+        $\prob()$ &  & Conditional on $k^{\rm th}$ class's spectrum covariance \\
+        $\prob()$ &  & Conditional on class probabilities \\
+        $\prob()$ &  & Conditional on $i^{\rm th}$ object's spectrum \\
+        $\prob()$ &  & Conditional on $i^{\rm th}$ object's class membership \\
+        \hline
+    \end{tabular}
+\end{table*}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Results}
+\section{Data}
 
-Even more stuff.
+We take 29502 red clump stars identified in the APOGEE dataset. The contamination from non-red-clump stars is expected to be on the order of X percent.Describe pre-processing. The spectra cover the range 15100.80-16999.81 \AA, using $\nb = 8575$ spectral bins. Inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. Specifically, we process all spectral bins within $\pm2.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 557$ and hence inversion time by a factor of $\sim3500$.
 
 \begin{table}
     \centering
@@ -125,6 +175,12 @@ Even more stuff.
         \hline
     \end{tabular}
 \end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Results}
+
+Even more stuff.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_rec_test_recovery_zoom.pdf}
