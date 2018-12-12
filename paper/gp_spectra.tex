@@ -37,14 +37,20 @@
 \newcommand{\normal}{{\rm{N}}}
 \newcommand{\uniform}{{\rm U}}
 \newcommand{\dirichlet}{{\rm D}}
+\newcommand{\invwish}{{\rm W}^{-1}}
+\newcommand{\alphas}{{\bm a}}
 \newcommand{\specmean}{{\bm m}}
-\newcommand{\speccov}{{\bm \Sigma}}
+\newcommand{\speccov}{{\bm S}}
 \newcommand{\classprob}{{p}}
 \newcommand{\classprobs}{{\bm p}}
 \newcommand{\objspec}{{\bm s}}
 \newcommand{\objclass}{{\kappa}}
+\newcommand{\objclasses}{{\bm \kappa}}
 \newcommand{\objdata}{\hat{\bm d}}
 \newcommand{\objnoise}{{\bm N}}
+\newcommand{\scalemat}{{\bm \Gamma}}
+\newcommand{\wfmean}{{\bm w}}
+\newcommand{\wfcov}{{\bm W}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -120,24 +126,29 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
 
 \begin{table*}
     \centering
-    \caption{Priors, likelihoods and conditional distributions for Gibbs sampling.}
+    \caption{Priors, likelihoods and conditional distributions for Gibbs sampling. In our simplified notation, $\uniform$, $\dirichlet$, $\normal$ and $\invwish$ denote uniform, Dirichlet, normal and inverse-Wishart distributions, respectively.}
     \label{tab:prob_dists}
     \begin{tabular}{lll}
         \hline
         distribution & form & process \\
         \hline
-        $\prob(\specmean_k)$ & $\uniform(-\infty,\infty)$ & Prior on $k^{\rm th}$ class's mean spectrum \\
-        $\prob(\speccov_k)$ & $|\speccov|^{-(\nb+1)/2}$ & Prior on $k^{\rm th}$ class's spectrum covariance \\
-        $\prob(\classprobs|\alpha)$ & $\dirichlet(\alpha)$ & Prior on class probabilities \\
-        $\prob(\objspec_i|\specmean,\speccov,\objclass_i)$ & $\normal(\specmean_{k=\objclass_i},\speccov_{k=\objclass_i})$ & $i^{\rm th}$ object's spectrum as Gaussian Process \\
-        $\prob(\objclass_i|\classprobs)$ & $\classprob_k$ & $i^{\rm th}$ object's class membership \\
-        $\prob(\objdata_i|\objspec_i,\objnoise_i)$ & $\normal(\objspec_i,\objnoise_i)$ & Noisy, masked spectral measurements \\
+        $\prob\left(\specmean_k\right)$ & $\uniform\left(-\infty,\infty\right)$ & Prior on $k^{\rm th}$ class's mean spectrum \\
+        $\prob\left(\speccov_k\right)$ & $\left| \speccov \right|^{-\left(\nb+1\right)/2}$ & Prior on $k^{\rm th}$ class's spectrum covariance \\
+        $\prob\left(\classprobs|\alpha\right)$ & $\dirichlet\left(\alpha\right)$ & Prior on class probabilities \\
+        $\prob\left(\objspec_i|\specmean,\speccov,\objclass_i\right)$ & $\normal\left(\specmean_{k=\objclass_i},\speccov_{k=\objclass_i}\right)$ & $i^{\rm th}$ object's spectrum as Gaussian Process \\
+        $\prob\left(\objclass_i = k|\classprobs\right)$ & $\classprob_k$ & $i^{\rm th}$ object's class membership \\
+        $\prob\left(\objdata_i|\objspec_i,\objnoise_i\right)$ & $\normal\left(\objspec_i,\objnoise_i\right)$ & Noisy, masked spectral measurements \\
         \hline
-        $\prob()$ &  & Conditional on $k^{\rm th}$ class's mean spectrum \\
-        $\prob()$ &  & Conditional on $k^{\rm th}$ class's spectrum covariance \\
-        $\prob()$ &  & Conditional on class probabilities \\
-        $\prob()$ &  & Conditional on $i^{\rm th}$ object's spectrum \\
-        $\prob()$ &  & Conditional on $i^{\rm th}$ object's class membership \\
+        $\prob\left(\specmean_k | \speccov_k, \objspec, \objclasses \right)$ & $\normal \left( \frac{1}{n_k} \sum_{\objclass_i = k} \objspec_i, \frac{1}{n_k} \speccov_k \right)$ & Conditional on $k^{\rm th}$ class's mean spectrum \\
+%        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\left| \speccov_k \right|^{-(n_k + \nb + 1)/2} \exp \left( -\frac{1}{2} {\rm tr} \left[ \scalemat_k \speccov_k^{-1} \right] \right)$, where & Conditional on $k^{\rm th}$ class's spectrum covariance \\
+        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\invwish \left(n_k, \scalemat_k \right)$, where & Conditional on $k^{\rm th}$ class's spectrum covariance \\
+         & $\scalemat_k = \sum_{\objclass_i = k} \left( \objspec_i - \specmean_k \right) \otimes \left( \objspec_i - \specmean_k \right)$ & \\
+        $\prob\left(\classprob_k | \objclasses, \alpha\right)$ & $\dirichlet\left(\alphas\right)$, where $a_k = \alpha + n_k$ & Conditional on class probabilities \\
+        $\prob \left( \objspec_i | \specmean_{k=\objclass_i}, \speccov_{k=\objclass_i}, \objdata_i, \objnoise_i \right)$ & $\normal \left( \wfmean_i, \wfcov_i \right)$, where & Conditional on $i^{\rm th}$ object's spectrum \\
+         & $\wfcov_i = \left( \speccov_{k=\objclass_i}^{-1} + \objnoise_i^{-1} \right)^{-1}$ and &  \\
+         & $\wfmean_i = \wfcov_i \left( \speccov_{k=\objclass_i}^{-1} \specmean_{k=\objclass_i} + \objnoise_i^{-1} \objdata_i \right)$ &  \\
+        $\prob \left( \objclass_i = k | \specmean, \speccov, \classprobs \right)$ & $ \frac{ \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k} + \ln \left| \speccov_k \right| \right] + \ln \classprob_k \right) }{ \sum_{k^\prime} \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k^\prime} + \ln \left| \speccov_{k^\prime} \right| \right] + \ln \classprob_{k^\prime} \right) }$, where  & Conditional on $i^{\rm th}$ object's class membership \\
+         & $\chi^2_{i,k} = \left( \objspec_i - \specmean_k \right)^T \speccov_k^{-1} \left( \objspec_i - \specmean_k \right) $ &  \\
         \hline
     \end{tabular}
 \end{table*}
