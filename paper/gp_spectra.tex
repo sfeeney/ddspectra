@@ -141,14 +141,14 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
         \hline
         $\prob\left(\specmean_k | \speccov_k, \objspec, \objclasses \right)$ & $\normal \left( \frac{1}{n_k} \sum_{\objclass_i = k} \objspec_i, \frac{1}{n_k} \speccov_k \right)$ & Conditional on $k^{\rm th}$ class's mean spectrum \\
 %        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\left| \speccov_k \right|^{-(n_k + \nb + 1)/2} \exp \left( -\frac{1}{2} {\rm tr} \left[ \scalemat_k \speccov_k^{-1} \right] \right)$, where & Conditional on $k^{\rm th}$ class's spectrum covariance \\
-        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\invwish \left(n_k, \scalemat_k \right)$, where & Conditional on $k^{\rm th}$ class's spectrum covariance \\
-         & $\scalemat_k = \sum_{\objclass_i = k} \left( \objspec_i - \specmean_k \right) \otimes \left( \objspec_i - \specmean_k \right)$ & \\
+        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\invwish \left(n_k, \scalemat_k \right)$, & Conditional on $k^{\rm th}$ class's spectrum covariance \\
+         & where  $\scalemat_k = \sum_{\objclass_i = k} \left( \objspec_i - \specmean_k \right) \otimes \left( \objspec_i - \specmean_k \right)$ & \\
         $\prob\left(\classprob_k | \objclasses, \alpha\right)$ & $\dirichlet\left(\alphas\right)$, where $a_k = \alpha + n_k$ & Conditional on class probabilities \\
-        $\prob \left( \objspec_i | \specmean_{k=\objclass_i}, \speccov_{k=\objclass_i}, \objdata_i, \objnoise_i \right)$ & $\normal \left( \wfmean_i, \wfcov_i \right)$, where & Conditional on $i^{\rm th}$ object's spectrum \\
-         & $\wfcov_i = \left( \speccov_{k=\objclass_i}^{-1} + \objnoise_i^{-1} \right)^{-1}$ and &  \\
-         & $\wfmean_i = \wfcov_i \left( \speccov_{k=\objclass_i}^{-1} \specmean_{k=\objclass_i} + \objnoise_i^{-1} \objdata_i \right)$ &  \\
-        $\prob \left( \objclass_i = k | \specmean, \speccov, \classprobs \right)$ & $ \frac{ \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k} + \ln \left| \speccov_k \right| \right] + \ln \classprob_k \right) }{ \sum_{k^\prime} \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k^\prime} + \ln \left| \speccov_{k^\prime} \right| \right] + \ln \classprob_{k^\prime} \right) }$, where  & Conditional on $i^{\rm th}$ object's class membership \\
-         & $\chi^2_{i,k} = \left( \objspec_i - \specmean_k \right)^T \speccov_k^{-1} \left( \objspec_i - \specmean_k \right) $ &  \\
+        $\prob \left( \objspec_i | \specmean_{k=\objclass_i}, \speccov_{k=\objclass_i}, \objdata_i, \objnoise_i \right)$ & $\normal \left( \wfmean_i, \wfcov_i \right)$, & Conditional on $i^{\rm th}$ object's spectrum \\
+         & where $\wfcov_i = \left( \speccov_{k=\objclass_i}^{-1} + \objnoise_i^{-1} \right)^{-1}$ &  \\
+         & and $\wfmean_i = \wfcov_i \left( \speccov_{k=\objclass_i}^{-1} \specmean_{k=\objclass_i} + \objnoise_i^{-1} \objdata_i \right)$ &  \\
+        $\prob \left( \objclass_i = k | \specmean, \speccov, \classprobs \right)$ & $ \frac{ \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k} + \ln \left| \speccov_k \right| \right] + \ln \classprob_k \right) }{ \sum_{k^\prime} \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k^\prime} + \ln \left| \speccov_{k^\prime} \right| \right] + \ln \classprob_{k^\prime} \right) }$, & Conditional on $i^{\rm th}$ object's class membership \\
+         & where $\chi^2_{i,k} = \left( \objspec_i - \specmean_k \right)^T \speccov_k^{-1} \left( \objspec_i - \specmean_k \right) $ &  \\
         \hline
     \end{tabular}
 \end{table*}
@@ -191,7 +191,9 @@ We take 29502 red clump stars identified in the APOGEE dataset. The contaminatio
 
 \section{Results}
 
-Even more stuff.
+\subsection{Validation}
+
+To avoid the complications of comparing data gathered by different spectrographs we validate our model and code by artificially masking a portion of one of our APOGEE spectra, namely the 15789 \AA\ Cerium window of our lowest-SNR star (2M18335753-1302240). The measured data for this star are plotted in Figure~\ref{fig:recovery_test} as a solid black line, with the artificially masked region picked out as a dashed line. The 68\% credible interval for the posterior probability on the star's true spectrum is plotted as dark grey, with the corresponding prediction for the observed spectrum (which also takes into account the uncertainty on the observations) plotted in light grey. This prediction (the posterior predictive distribution of the measured data) is in excellent agreement with the measured data, indicating that our model is capable of inpainting masked regions without bias. Note, in addition, that the uncertainty on the true spectrum is much smaller than the measurement noise, demonstrating our method's ability to denoise observed spectra.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_rec_test_recovery_zoom.pdf}
@@ -199,17 +201,37 @@ Even more stuff.
     \label{fig:recovery_test}
 \end{figure}
 
+\subsection{APOGEE Inference}
+
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_low_rank_covariance.pdf}
     \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right).}
     \label{fig:inferred_cov}
 \end{figure*}
 
+Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated ({\bf discuss potential kernel choices?}). Its eigenspectrum also decays rapidly: only 241 of 557 eigenmodes have eigenvalues within 1/100 of the maximum. A low-rank approximation to the mean covariance retaining only these eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 500 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 12 if 241 modes were retained). Na\"ively projecting the data onto the largest principal components of the sample covariance matrix prior to inference severely degrades performance. Modifying the hierarchical model (along the lines of {\bf citations}) to explicitly infer a rank-deficient covariance matrix is left to future work.
+
+\begin{figure*}
+	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_gp_realizations.pdf}
+    \caption{Mean-posterior mean spectrum (black), and 50 realizations drawn from our Gaussian Process model, conditioned on the APOGEE data, coloured purple to yellow according to their flux in the first spectral bin.}
+    \label{fig:gp_reals}
+\end{figure*}
+
+The posterior mean of the mean spectrum is plotted in black in Figure~\ref{fig:gp_reals}. The mean spectrum is extremely well constrained: its 68\% credible interval is narrower than the width of line. To illustrate the covariance structure captured by our model, we overlay 50 realizations drawn from our Gaussian-Process model conditioned on the APOGEE data, colour-coded by the value they take in the first spectral bin. These potential true spectra, which do not contain measurement uncertainties, illustrate the variability permitted by the model and highlight certain clear trends, most notably highly correlated differences in line depths.
+
+true spectra. inpainting, denoising. quantify? any underperformance?
+
+number of classes, high-dim inference
+
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_save_spectra.pdf}
     \caption{Observed spectra (pink shaded regions) and inferred ``true'' spectra (grey shaded regions) for six interesting examples illustrating our ability to inpaint and denoise. From top: two spectra with the 15789 \AA\ Cerium window fully masked; two spectra with the 16058 \AA\ Neodymium window fully masked; the two lowest signal-to-noise spectra.}
     \label{fig:inpainting_denoising_examples}
 \end{figure*}
+
+\subsection{Information Gain}
+
+predictivity
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_inf_gain.pdf}
