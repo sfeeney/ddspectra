@@ -52,6 +52,9 @@
 \newcommand{\wfmean}{{\bm w}}
 \newcommand{\wfcov}{{\bm W}}
 
+%Editing commands
+\newcommand{\bdw}[1]{\textbf{\textcolor{magenta}{BDW: #1}}}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \title[Gaussian Process Spectra]{Gaussian Process Spectra}
@@ -61,10 +64,8 @@ Benjamin D. Wandelt,$^{1,2,3,4}$
 and Melissa K. Ness$^{1,5}$
 \\
 $^{1}$Center for Computational Astrophysics, Flatiron Institute, 162 Fifth Avenue, New York, NY 10010, USA\\
-$^{2}$Institut d'Astrophysique de Paris (IAP), UMR 7095, CNRS UPMC Universit\'e Paris 6, Sorbonne Universit\'es, \\
-98bis boulevard Arago, F-75014 Paris, France\\
-$^{3}$Institut Lagrange de Paris (ILP), UMR 7095, CNRS UPMC Universit\'e Paris 6, Sorbonne Universit\'es, \\
-98bis boulevard Arago, F-75014 Paris, France\\
+$^{2}$Sorbonne Universit\'e, CNRS, UMR 7095,  Institut d'Astrophysique de Paris (IAP), 98 bis boulevard Arago, 75014 Paris, France\\
+$^{3}$Sorbonne Universit\'e, Institut Lagrange de Paris (ILP), 98 bis boulevard Arago, 75014 Paris, France\\
 $^{4}$Department of Physics and Astronomy, University of Illinois at Urbana-Champaign, 1002 W Green St, Urbana, IL 61801, USA\\
 $^{5}$Department of Astronomy, Columbia University, Pupin Physics Laboratories, New York, NY 10027, USA
 }
@@ -101,7 +102,7 @@ keyword1 -- keyword2 -- keyword3
 
 Motivations/goals. By pooling information about stars we can:
 \begin{enumerate}
-\item Denoise to avoid excessively harsh signal-to-noise cuts. What is the current minimum S/N considered useful?
+\item Denoise to avoid excessively harsh signal-to-noise cuts. \bdw{not sure I understand why we highlight this reason. Generically, we can use the data-driven GP mixture model to denoise and thus enhance the data, potentially enabling new discoveries. This should work for high S/N and low S/N regions; how useful this is depends on the size of the effects we may want to discover}. What is the current minimum S/N considered useful?
 \item Inpaint masked regions of spectra to make, e.g., abundance measurements that would otherwise be impossible.
 \item Determine the most informative regions of spectra to, e.g., determine whether we can retain sensitivity to abundances by observing a reduced spectral range.
 \end{enumerate}
@@ -209,7 +210,7 @@ To avoid the complications of comparing data gathered by different spectrographs
     \label{fig:inferred_cov}
 \end{figure*}
 
-Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated ({\bf discuss potential kernel choices?}). Its eigenspectrum also decays rapidly: only 241 of 557 eigenmodes have eigenvalues within 1/100 of the maximum. A low-rank approximation to the mean covariance retaining only these eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 500 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 12 if 241 modes were retained). Na\"ively projecting the data onto the largest principal components of the sample covariance matrix prior to inference severely degrades performance. Modifying the hierarchical model (along the lines of {\bf citations}) to explicitly infer a rank-deficient covariance matrix is left to future work.
+Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated ({\bf discuss potential kernel choices?}). Its eigenspectrum also decays rapidly: only 241 of 557 eigenmodes have eigenvalues larger than  1/100 of the maximum. A low-rank approximation to the mean covariance retaining only these eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 500 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 12 if 241 modes were retained). Na\"ively projecting the data onto the largest principal components of the sample covariance matrix prior to inference severely degrades performance. Modifying the hierarchical model (along the lines of {\bf citations}) to explicitly infer a rank-deficient covariance matrix is left to future work.
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_gp_realizations.pdf}
@@ -217,7 +218,7 @@ Our inference produces samples of the probability, mean spectrum and covariance 
     \label{fig:gp_reals}
 \end{figure*}
 
-The posterior mean of the mean spectrum is plotted in black in Figure~\ref{fig:gp_reals}. The mean spectrum is extremely well constrained: its 68\% credible interval is narrower than the width of line. To illustrate the covariance structure captured by our model, we overlay 50 realizations drawn from our Gaussian-Process model conditioned on the APOGEE data, colour-coded by the value they take in the first spectral bin. These potential true spectra, which do not contain measurement uncertainties, illustrate the variability permitted by the model and highlight certain clear trends, most notably highly correlated differences in line depths.
+The posterior mean of the mean spectrum is plotted in black in Figure~\ref{fig:gp_reals}. The mean spectrum is extremely well constrained: its 68\% credible interval is narrower than the width of line. To illustrate the covariance structure captured by our model, we overlay 50 realizations drawn from our Gaussian-Process model conditioned on the APOGEE data, colour-coded by the value they take in the first spectral bin. These samples can be interpreted as examples of potential noiseless true spectra that could have led to the data. They illustrate the variability permitted by the model and highlight certain clear trends, most notably highly correlated differences in line depths.
 
 true spectra. inpainting, denoising. quantify? any underperformance?
 
@@ -236,7 +237,7 @@ predictivity
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_inf_gain.pdf}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_conditional_stddevs.pdf}
-    \caption{Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black.}
+    \caption{Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black\bdw{Is this the same as the noise?}.}
     \label{fig:ce_information}
 \end{figure*}
 
