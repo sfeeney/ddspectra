@@ -100,12 +100,60 @@ keyword1 -- keyword2 -- keyword3
 
 \section{Introduction}
 
-Motivations/goals. By pooling information about stars we can:
+Motivations/goals. 
+\textcolor{red}{There is now a vast set of spectroscopic data and associated label data from surveys like APOGEE, GALAH, LAMOST, SEGUE and RAVE and an increasing number of large spectrosopic surveys will be starting observations in the coming years such as Sloan V, WEAVE, 4 MOST and Gaia RVS. Surveys like GALAH and APOGEE have revolutionised our empirical characterisation of the Milky Way and improved our understanding of its assembly, but both rely on expensive observations integrating to high signal to noise (up to SNR $>$ 100 per pixel) in the pursuit of precision abundances to provide optimal chemical differentiation across the sky (e.g. link to chemical tagging work). Surveys like Sloan V are obtaining an order of magnitude more stars via more efficient sky sampling and by relaxing the SNR limit to ~ 40 per pixel, yet at what precision expense in the derived labels like abundances? Furthermore, GAIA will deliver medium resolution spectra for 7 million objects, with N percent of this being at prohibitive signal to noise for abundance measurements given traditional approaches. We are therefore at a point where we must assess what the information content of the data is, and what precision measurements we can make of the data using more sophistocated and data-driven modeling of the spectra.  Data driven modeling like The Cannon and also The Payne have shown that the same precision can be obtained for APOGEE data with 1/4 to 1/9th of the observing time (1/2 to 1/3 of the SNR, so a SNR of around 40 compared to 100 for most abundances) but can do even better things - why is this better.  }
+
+Is there any purpose of measuring all these elements? Empirically extra information in them? 
+
+-first look at the information content of the spectra
+-first characterisation and mapping of the element correlations
+
+state just red clump sample 
+
+Fig3: add to caption very explicit that this is about how strongly correlated everything is. 
+
+Fig 4 - trying to bring out the correlation structure in a slightly different way
+
+Fig 4 - perfectly uncorrelated would be random purpose and yellow because none of the pixels in the bin compare about any of the pixels in any other bin. If perfectly correlated yellow all up the top, purple all down the bottom. 
+
+-not parameterised in any physical way
+understanding of stellar spectra is truly rudimentary 
+this is part of a bigger effort in order to (under the assumption that everything is Guassian) allows us to learn the covariance at every point completely independent of any given physical template. 
+- question about the degrees of freedom (N*N)/2 degrees of freedom, diagonal of the covariance matrix
+- big thing is it shows the covariances
+-understand what the information content of the spectra
+-inferring true spectra of every star.( N*N + Nclasses*2 + N*N)/2
+in the context of a much more sophistocated model 
+-runs into problems as matrix algebra (just gets really slow) 
+-new things
+-can do de-noising 
+
+Fig 6: information gain for each element and then pick the one that is most informative and then calculate the information gain on the window of interest given most informative element and each other one
+-log of the determinant of the covariance matrix of the window/ log of the covariance matrix of the window conditioned on other data
+-
+
+\textcolor{red}{lay out the items then want to showcase them one by one in the paper and also come back to the information content point}
+
+By pooling information about stars we can:
+% reorder this 
+%1. correlations
+%2. iformation content
+%3. masked regions
+%4. make a metric to demonstrate - denoised spectra so can quantify in a section In terms of variances []
+%ratio of standard deviations of the pink to the grey
 \begin{enumerate}
 \item Denoise to avoid excessively harsh signal-to-noise cuts. \bdw{not sure I understand why we highlight this reason. Generically, we can use the data-driven GP mixture model to denoise and thus enhance the data, potentially enabling new discoveries. This should work for high S/N and low S/N regions; how useful this is depends on the size of the effects we may want to discover}. What is the current minimum S/N considered useful?
 \item Inpaint masked regions of spectra to make, e.g., abundance measurements that would otherwise be impossible.
 \item Determine the most informative regions of spectra to, e.g., determine whether we can retain sensitivity to abundances by observing a reduced spectral range.
 \end{enumerate}
+
+to do: For the Figure 6 - a list of the windows and the element families and then that is a whole little section . 
+
+Fig 2 - go down to just the window
+
+Fig 5: corner put SNR 
+
+state just red clump sample 
 
 How will we do this? By modeling the spectra as a data-driven Gaussian Process. What is a GP and what are relevant applications.
 
@@ -247,6 +295,8 @@ predictivity
     \caption{Information gain (top) and conditional standard deviation (bottom) for Neodymium window given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black.}
     \label{fig:nd_information}
 \end{figure}
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
