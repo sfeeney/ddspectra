@@ -88,6 +88,11 @@ This is a simple template for authors to write new MNRAS papers.
 The abstract should briefly describe the aims, methods, and main results of the paper.
 It should be a single paragraph not more than 250 words (200 words for Letters).
 No references should appear in the abstract.
+Context:
+Aims: 
+Methods:
+Results: 
+Conclusions :
 \end{abstract}
 
 % Select between one and six entries from the list of approved keywords.
@@ -270,8 +275,8 @@ To avoid the complications of comparing data gathered by different spectrographs
     \label{fig:recovery_test}
 \end{figure}
 
-\subsection{APOGEE Inference}
-%\subsection{Feature Correlations across abundance windows}
+\subsection{APOGEE Inference: Feature Correlations Across the Abundance Windows}
+
 
 Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated ({\bf discuss potential kernel choices?}). Its eigenspectrum also decays rapidly: only 241 of 557 eigenmodes have eigenvalues larger than 1/100 of the maximum. A low-rank approximation to the mean covariance retaining only these eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 500 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 12 if 241 modes were retained). Na\"ively projecting the data onto the largest principal components of the sample covariance matrix prior to inference severely degrades performance. Modifying the hierarchical model (along the lines of {\bf citations}) to explicitly infer a rank-deficient covariance matrix is left to future work.
 
@@ -300,14 +305,18 @@ number of classes, high-dim inference
     \label{fig:inpainting_denoising_examples}
 \end{figure*}
 
-\subsection{Information Gain}
+\subsection{The Measured Information Content in the Spectra}
 
 predictivity
+Here we measure information gain. Given one element, how much information do we gain by measuring one more element, and then another. 
+Demonstrate for each family
+Metric is this: 
+What we find is essentially every single element adds information. Flat line would indicate no additional information, falls of exponentially at different rates for all the elements. Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on. 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_inf_gain.pdf}
 	\includegraphics[width=2\columnwidth]{apogee_centers_subset2_ce_nd_29502_spc_ce_conditional_stddevs.pdf}
-    \caption{Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black\bdw{Is this the same as the noise?}.}
+    \caption{\textcolor{red}{[do for each family with a sample element and color families together (see email) ]} Information gain (top) and conditional standard deviation (bottom) for Cerium windows given observations of other elemental windows. The uncertainty on the predicted spectrum without observations of other windows is shown in black\bdw{Is this the same as the noise?}.}
     \label{fig:ce_information}
 \end{figure*}
 
