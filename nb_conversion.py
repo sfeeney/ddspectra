@@ -168,7 +168,7 @@ use_mpi = True
 recovery_test = True
 constrain = False
 no_s_inv = False
-sample = True
+sample = False
 precompress = False
 inpaint = False
 n_bins = 7 # 50
@@ -180,8 +180,9 @@ n_gp_reals = 50
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = 'data/centers_subset2_ce_nd.txt' # filename or None
-save_spectra = None # 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
+save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+win_wid = 1.0
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -207,9 +208,14 @@ if jeffreys_prior == 0:
 if recovery_test:
 	io_base += 'rec_test_'
 	i_rec_test = 21495
-	j_rec_test_lo = 375 # included
-	j_rec_test_hi = 398 # not included
-
+	if win_wid == 2.5:
+		j_rec_test_lo = 0#345 # 375 # included
+		j_rec_test_hi = 10#368 # 398 # not included
+	elif win_wid == 1.0:
+		j_rec_test_lo = 135 # included
+		j_rec_test_hi = 144 # not included
+if win_wid != 2.5:
+	io_base += 'win_wid_{:3.1f}_'.format(win_wid).replace('.', 'p')
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -381,14 +387,15 @@ else:
 
 			# read in window definitions. file contains elements with 
 			# positions of features within three wavelength ranges. take 
-			# windows of +/- 2.5 Angstroms about each line center; centers
+			# windows of +/- win_wid Angstroms about each line center; centers
 			# of 999 Angstroms should be ignored
 			wdata = np.genfromtxt(window, dtype=None, \
 								  skip_header=1)
 			centers, elements = [], []
 			for i in range(len(wdata)):
 				#for j in range(3):
-				for j in range(2):
+				#for j in range(2):
+				for j in range(1):
 					center = wdata[i][j + 1]
 					if center != 999.0:
 						centers.append(center)
@@ -396,11 +403,11 @@ else:
 			centers, elements = (list(t) for t in \
 								 zip(*sorted(zip(centers, elements))))
 			windices = np.full(len(wl), False, dtype=bool)
-			print 'selecting wavelengths within 2.5 Angstroms of:'
+			print 'selecting wavelengths within {:3.1f} Angstroms of:'.format(win_wid)
 			wlabels = [elements[0]]
 			for i in range(len(centers)):
-				windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
-												   (wl <= centers[i] + 2.5))
+				windices = np.logical_or(windices, (wl >= centers[i] - win_wid) & \
+												   (wl <= centers[i] + win_wid))
 				msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
 				print msg.format(i, centers[i])
 				if i > 0:
@@ -1198,13 +1205,16 @@ if rank == 0:
 			# interpretation of correlations
 			cols = [cm(x) for x in np.linspace(0.1, 0.9, n_gp_reals)]
 			for i in range(n_gp_reals):
-				axes[k].plot(wl, gp_reals[ind_sort[i], :], color=cols[i])
+				axes[k].plot(wl, gp_reals[ind_sort[i], :], color=cols[i], alpha=0.5)
 			axes[k].plot(wl, mp_mean[:, k], 'k')
 			if datafile is not None and window:
 				for i in range(n_windows):
+					x_text = n_in_bin[i] / 2.0
+					if i > 0:
+						x_text += wendices[i - 1]
 					axes[k].axvline(wendices[i], color='k', lw=0.5, ls=':')
-					axes[k].text(wendices[i], mp.gca().get_ylim()[0], \
-								 wlabels[i], fontsize=8, ha='right', \
+					axes[k].text(x_text, mp.gca().get_ylim()[0], \
+								 wlabels[i], fontsize=8, ha='center', \
 								 va='bottom')
 			axes[k].set_ylabel(r'${\rm flux}$', fontsize=14)
 
@@ -1273,7 +1283,7 @@ if rank == 0:
 		cax = axes[k, 1].matshow(mp_cov_low_rank, vmin=-ext_cov, \
 								 vmax=ext_cov, cmap=mpcm.seismic, \
 								 interpolation = 'nearest')
-		axes[k, 2].matshow(mp_cov_low_rank - mp_cov[:, :, k], \
+		axes[k, 2].matshow((mp_cov_low_rank - mp_cov[:, :, k]) * 500.0, \
 						   vmin=-ext_cov, vmax=ext_cov, \
 						   cmap=mpcm.seismic, interpolation='nearest')
 		fig.subplots_adjust(right=0.8)
@@ -1284,7 +1294,7 @@ if rank == 0:
 		axes[k, 0].set_title(r'Mean Posterior')
 		axes[k, 1].set_title('Mean Posterior (rank ' + \
 							 '{:d})'.format(n_eval_sig[k]))
-		axes[k, 2].set_title(r'Residual')
+		axes[k, 2].set_title(r'Residual ($\times 500$)')
 		for i in range(len(axes[k, :])):
 			axes[k, i].tick_params(axis='both', which='both', \
 								   bottom='off', top='off', \
