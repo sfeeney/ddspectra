@@ -165,7 +165,7 @@ cm = mpcm.get_cmap('plasma')
 
 # setup
 use_mpi = True
-recovery_test = True
+recovery_test = False
 constrain = False
 no_s_inv = False
 sample = False
@@ -182,7 +182,7 @@ diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
-win_wid = 1.0
+win_wid = 2.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -411,7 +411,7 @@ else:
 				msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
 				print msg.format(i, centers[i])
 				if i > 0:
-					if np.abs(centers[i-1] - centers[i]) < 5.0:
+					if np.abs(centers[i-1] - centers[i]) < 2.0 * win_wid:
 						wlabels[-1] += '/' + elements[i]
 					else:
 						wlabels.append(elements[i])
@@ -1186,7 +1186,7 @@ if rank == 0:
 
 		# one subfigure per class
 		fig, axes = mp.subplots(n_classes, 1, \
-								figsize=(8, 5 * n_classes), \
+								figsize=(16, 5 * n_classes), \
 								sharex=True)	
 		if n_classes == 1:
 			axes = axis_to_axes(axes)
@@ -1214,15 +1214,15 @@ if rank == 0:
 						x_text += wendices[i - 1]
 					axes[k].axvline(wendices[i], color='k', lw=0.5, ls=':')
 					axes[k].text(x_text, mp.gca().get_ylim()[0], \
-								 wlabels[i], fontsize=8, ha='center', \
+								 wlabels[i], fontsize=16, ha='center', \
 								 va='bottom')
-			axes[k].set_ylabel(r'${\rm flux}$', fontsize=14)
+			axes[k].set_ylabel(r'${\rm flux}$', fontsize=18)
 
 		axes[-1].set_xlim(wl[0], wl[-1])
 		if datafile is not None and window:
-			axes[-1].set_xlabel(r'${\rm index}\,(i)$')
+			axes[-1].set_xlabel(r'${\rm index}\,(i)$', fontsize=18)
 		else:
-			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$')
+			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$', fontsize=18)
 			mp.setp(axes[-1].get_xticklabels(), rotation=45)
 		mp.savefig(io_base + 'gp_realizations.pdf', bbox_inches='tight')
 		mp.close()
