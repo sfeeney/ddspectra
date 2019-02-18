@@ -141,16 +141,39 @@ n_classes = 1
 n_samples = 10000 # 1000
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-window = 'data/centers_subset2_ce_nd.txt' # filename or None
+window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
+win_wid = 2.5
 eval_thresh = 1.0e-4
 n_gp_reals = 50
 recovery_test = False
 if recovery_test:
 	i_rec_test = 21495
-	j_rec_test_lo = 375 # included
-	j_rec_test_hi = 398 # not included
+	if win_wid == 2.5:
+		j_rec_test_lo = 345 # 375 # included
+		j_rec_test_hi = 368 # 398 # not included
+	elif win_wid == 1.0:
+		j_rec_test_lo = 135 # included
+		j_rec_test_hi = 144 # not included
+group_by_fam = True
+sort_by = 'z' # 'z' or 'alpha'
+opt_over_elem = True
+dist_met = 'abs' # 'abs' or 'euc'
+
+# target elements
+tgts = ['C', 'Na', 'Mg', 'Fe', 'Ce']
+#families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'Mg': 2, 'Ti': 2, \
+#			'Si': 2, 'O': 2, 'Cu': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, \
+#			'Ce': 4, 'Nd': 4}
+families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'Mg': 2, 'Ti': 2, \
+			'Si': 2, 'O': 2, 'Cr': 3, 'Mn': 3, 'Fe': 3, 'Ca/Co': 3, 'Ni': 3, \
+			'Ce': 4, 'Nd': 4}
+n_fam = len(tgts)
+#cm_fam = mpcm.get_cmap('Set1')
+#cols_fam = [cm_fam(float(i) / 9.0) for i in range(n_fam)]
+cm_fam = mpcm.get_cmap('Paired')
+cols_fam = [cm_fam(float(i + 0.5) / 6.0) for i in range(n_fam)]
 
 # build up output filename
 if datafile is None:
@@ -170,6 +193,8 @@ if precompress:
 		io_base += 'pca_'
 if recovery_test:
 	io_base += 'rec_test_'
+if win_wid != 2.5:
+	io_base += 'win_wid_{:3.1f}_'.format(win_wid).replace('.', 'p')
 
 # data may be distributed over multiple input files. if we're 
 # windowing we don't know a priori how many spectral bins are
@@ -184,33 +209,39 @@ wl, full_data = read_spectra(n_to_load, \
 
 # read in window definitions. file contains elements with 
 # positions of features within three wavelength ranges. take 
-# windows of +/- 2.5 Angstroms about each line center; centers
+# windows of +/- win_wid Angstroms about each line center; centers
 # of 999 Angstroms should be ignored
 wdata = np.genfromtxt(window, dtype=None, \
 					  skip_header=1)
-centers, elements = [], []
+centers, elements, atom_nums = [], [], []
 for i in range(len(wdata)):
 	#for j in range(3):
-	for j in range(2):
+	#for j in range(2):
+	for j in range(1):
 		center = wdata[i][j + 1]
 		if center != 999.0:
 			centers.append(center)
 			elements.append(wdata[i][0])
-centers, elements = (list(t) for t in \
-					 zip(*sorted(zip(centers, elements))))
+			atom_nums.append(float(wdata[i][3]))
+centers, elements, atom_nums = (list(t) for t in \
+					 zip(*sorted(zip(centers, elements, atom_nums))))
 windices = np.full(len(wl), False, dtype=bool)
-print 'selecting wavelengths within 2.5 Angstroms of:'
+print 'selecting wavelengths within {:3.1f} Angstroms of:'.format(win_wid)
 wlabels = [elements[0]]
+watomnums = [atom_nums[0]]
 for i in range(len(centers)):
-	windices = np.logical_or(windices, (wl >= centers[i] - 2.5) & \
-									   (wl <= centers[i] + 2.5))
+	windices = np.logical_or(windices, (wl >= centers[i] - win_wid) & \
+									   (wl <= centers[i] + win_wid))
 	msg = '{0:d}: {1:.2f} A (' + elements[i] + ')'
 	print msg.format(i, centers[i])
 	if i > 0:
-		if np.abs(centers[i-1] - centers[i]) < 5.0:
+		if np.abs(centers[i-1] - centers[i]) < 2.0 * win_wid:
 			wlabels[-1] += '/' + elements[i]
+			watomnums[-1] += atom_nums[i]
+			watomnums[-1] /= 2.0
 		else:
 			wlabels.append(elements[i])
+			watomnums.append(atom_nums[i])
 
 # determine the selected-data indices where the breaks are
 n_bins = np.sum(windices)
@@ -376,7 +407,8 @@ if recovery_test:
 	mp.xlim(wl[0], wl[-1])
 	mp.ylim(0.5, 1.2)
 	mp.savefig(io_base + 'recovery.pdf', bbox_inches='tight')
-	mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
+	#mp.xlim(wl[j_rec_test_lo - 10], wl[j_rec_test_hi + 10])
+	mp.xlim(wl[j_rec_test_lo], wl[j_rec_test_hi - 1])
 	mp.ylim(0.8, 1.2)
 	mp.savefig(io_base + 'recovery_zoom.pdf', bbox_inches='tight')
 	mp.close()
@@ -389,6 +421,7 @@ if save_spectra is not None:
 		if save_spectra == \
 			'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt':
 			ids = np.array([0, 1, 86, 87, 129, 130])
+			ids = np.array([0, 1, 10, 16, 20, 21])
 		else:
 			ids = npr.choice(n_save_spectra, size=6, replace=False)
 		n_save_spectra = ids.shape[0]
@@ -408,8 +441,8 @@ if save_spectra is not None:
 							 color='r', alpha=0.5)
 		axes[i].fill_between(wl, s_mean + s_std, s_mean - s_std, \
 							 color='Grey', alpha=0.7)
-		axes[i].set_xlabel(r'${\rm index}\,(i)$')
-		axes[i].set_ylabel(r'${\rm flux}$')
+		axes[i].set_xlabel(r'${\rm index}\,(i)$', fontsize=18)
+		axes[i].set_ylabel(r'${\rm flux}$', fontsize=18)
 		axes[i].set_xlim(wl[0], wl[-1])
 		axes[i].set_ylim(0.6, 1.2)
 		if i > 0:
@@ -428,7 +461,7 @@ if save_spectra is not None:
 				axes[i].axvline(wendices[j], color='k', lw=0.5, \
 								ls=':')
 				axes[i].text(x_pos, y_pos, wlabels[j], \
-							 fontsize=12, ha='center', \
+							 fontsize=16, ha='center', \
 							 va='bottom')
 	fig.subplots_adjust(hspace=0, wspace=0)
 	mp.savefig(io_base + 'save_spectra.pdf', bbox_inches='tight')
@@ -446,13 +479,18 @@ fig_e, axes_e = mp.subplots(n_ext / 2, n_classes, \
 fig_d, axes_d = mp.subplots(n_classes, 1, \
 							figsize=(8, 5 * n_classes), \
 							sharex=True)
+fig_m, axes_m = mp.subplots(n_classes, 1, \
+							figsize=(8, 5 * n_classes), \
+							sharex=True)
 if n_classes == 1:
 	axes = axis_to_axes(axes, True)
 	axes_e = axis_to_axes(axes_e, True)
 	axes_d = axis_to_axes(axes_d)
+	axes_m = axis_to_axes(axes_m)
 for k in range(n_classes):
 
 	inf_gain = np.zeros(n_windows ** 2)
+	inf_gain_2d = np.zeros((n_windows, n_windows))
 	stddev = np.zeros((n_bins, n_bins))
 	for i in range(n_windows):
 
@@ -496,6 +534,9 @@ for k in range(n_classes):
 			inf_gain[w * n_windows + i] = \
 				np.log(npl.det(cond_cov_ww)) - \
 				np.log(npl.det(s_ww))
+			inf_gain_2d[i, w] = \
+				np.log(npl.det(cond_cov_ww)) - \
+				np.log(npl.det(s_ww))
 
 	# plot information gains
 	ylim = [ax.get_ylim() for ax in axes[:, k]]
@@ -526,6 +567,125 @@ for k in range(n_classes):
 	y_max = np.max(inf_gain[inf_gain < 0])
 	axes_d[k].set_ylim(y_min - np.abs(y_max) * 0.1, y_max)
 	axes_d[k].set_ylabel(r'$\log|C_{ii|j}| - \log|C_{ii}|$')
+
+	# plot of all information gains
+	if group_by_fam:
+		if sort_by == 'alpha':
+			wlabels_sorted = []
+			for i in range(n_fam):
+				wlabels_sorted += sorted([fk for fk, fv in families.iteritems() if fv == i])
+			wlabels_sorted += sorted(list(set(wlabels).difference(wlabels_sorted)))
+			reorder = np.array([wlabels.index(wls) for wls in wlabels_sorted])
+			inf_gain_2d = inf_gain_2d[reorder, :]
+			inf_gain_2d = inf_gain_2d[:, reorder]
+		else:
+			wlabels_sorted = []
+			for i in range(n_fam):
+				e_fams = [fk for fk, fv in families.iteritems() if fv == i]
+				i_w_fams = [wlabels.index(e_fam) for e_fam in e_fams]
+				z_fams = [watomnums[i_w_fam] for i_w_fam in i_w_fams]
+				z_fams, i_w_fams = (t for t in zip(*sorted(zip(z_fams, i_w_fams))))
+				wlabels_sorted += [wlabels[i_w_fam] for i_w_fam in i_w_fams]
+			w_rems = list(set(wlabels).difference(wlabels_sorted))
+			i_w_rems = [wlabels.index(w_rem) for w_rem in w_rems]
+			z_rems = [watomnums[i_w_rem] for i_w_rem in i_w_rems]
+			z_rems, i_w_rems = (t for t in zip(*sorted(zip(z_rems, i_w_rems))))
+			wlabels_sorted += [wlabels[i_w_rem] for i_w_rem in i_w_rems]
+		reorder = np.array([wlabels.index(wls) for wls in wlabels_sorted])
+		inf_gain_2d = inf_gain_2d[reorder, :]
+		inf_gain_2d = inf_gain_2d[:, reorder]
+	elif opt_over_elem:
+		inf_gain_3d = np.zeros((n_windows, n_windows, n_windows))
+		total_dists = np.zeros(n_windows)
+		all_wlabels = []
+		for m in range(n_windows):
+			reorder = np.arange(n_windows, dtype=int)
+			reorder = np.append(np.array([m]), np.delete(reorder, m))
+			inf_gain_3d[:, :, m] = inf_gain_2d[:, :]
+			inf_gain_3d[:, :, m] = inf_gain_3d[reorder, :, m]
+			inf_gain_3d[:, :, m] = inf_gain_3d[:, reorder, m]
+			wlabels_sorted = [wlabels[reorder[i]] for i in range(n_windows)]
+			for i in range(n_windows - 1):
+				dists = np.zeros(n_windows - 1 - i)
+				row_i = np.zeros(n_windows)
+				row_j = np.zeros(n_windows)
+				for j in range(i + 1, n_windows):
+					row_i[:] = inf_gain_3d[i, :, m]
+					row_j[:] = inf_gain_3d[j, :, m]
+					row_i[j] = 0.0
+					row_j[i] = 0.0
+					if dist_met == 'euc':
+						dists[j - i - 1] = \
+							np.sqrt(np.sum((row_i - row_j) ** 2))
+					elif dist_met == 'abs':
+						dists[j - i - 1] = \
+							np.sum(np.abs((row_i - row_j)))
+				j_min = np.argmin(dists)
+				reorder = np.arange(n_windows, dtype=int)
+				reorder[i + 1] = j_min + i + 1
+				reorder[j_min + i + 1] = i + 1
+				inf_gain_3d[:, :, m] = inf_gain_3d[reorder, :, m]
+				inf_gain_3d[:, :, m] = inf_gain_3d[:, reorder, m]
+				wlabel_temp = wlabels_sorted[i + 1]
+				wlabels_sorted[i + 1] = wlabels_sorted[j_min + i + 1]
+				wlabels_sorted[j_min + i + 1] = wlabel_temp
+				total_dists[m] += dists[j_min]
+			all_wlabels.append(wlabels_sorted)
+		print total_dists
+		m_min = np.argmin(total_dists)
+		inf_gain_2d[:, :] = inf_gain_3d[:, :, m_min]
+		wlabels_sorted = all_wlabels[m_min]
+	else:
+		reorder = np.argsort(np.sum(inf_gain_2d, axis = 1))
+		#reorder = np.argsort(np.min(inf_gain_2d, axis = 1))
+		inf_gain_2d = inf_gain_2d[reorder, :]
+		inf_gain_2d = inf_gain_2d[:, reorder]
+		wlabels_sorted = [wlabels[reorder[i]] for i in range(n_windows)]
+		#wlabels_sorted = [wlabel for wlabel in wlabels]
+		for i in range(n_windows - 1):
+			dists = np.zeros(n_windows - 1 - i)
+			row_i = np.zeros(n_windows)
+			row_j = np.zeros(n_windows)
+			for j in range(i + 1, n_windows):
+				row_i[:] = inf_gain_2d[i, :]
+				row_j[:] = inf_gain_2d[j, :]
+				row_i[j] = 0.0
+				row_j[i] = 0.0
+				if dist_met == 'euc':
+					dists[j - i - 1] = \
+						np.sqrt(np.sum((row_i - row_j) ** 2))
+				elif dist_met == 'abs':
+					dists[j - i - 1] = \
+						np.sum(np.abs((row_i - row_j)))
+			j_min = np.argmin(dists)
+			reorder = np.arange(n_windows, dtype=int)
+			reorder[i + 1] = j_min + i + 1
+			reorder[j_min + i + 1] = i + 1
+			inf_gain_2d = inf_gain_2d[reorder, :]
+			inf_gain_2d = inf_gain_2d[:, reorder]
+			wlabel_temp = wlabels_sorted[i + 1]
+			wlabels_sorted[i + 1] = wlabels_sorted[j_min + i + 1]
+			wlabels_sorted[j_min + i + 1] = wlabel_temp
+	inf_gain_2d += np.diag(np.full(n_windows, np.nan))
+	cmr = mpcm.plasma_r
+	cmr.set_bad('k')
+	cax = axes_m[k].matshow(inf_gain_2d, interpolation='nearest', \
+							cmap=cmr)
+	axes_m[k].set_xticks(range(n_windows))
+	axes_m[k].set_xticklabels(wlabels_sorted, rotation='vertical')
+	axes_m[k].set_yticks(range(n_windows))
+	axes_m[k].set_yticklabels(wlabels_sorted)
+	xticklabels = axes_m[k].get_xticklabels()
+	yticklabels = axes_m[k].get_yticklabels()
+	for j in range(n_windows):
+		xtl_text = xticklabels[j].get_text()
+		if xtl_text in families:
+			xticklabels[j].set_color(cols_fam[families[xtl_text]])
+			yticklabels[j].set_color(cols_fam[families[xtl_text]])
+	ax_pos = axes_m[k].get_position()
+	cbar_ax = fig_m.add_axes([0.84, ax_pos.y0, 0.02, \
+							  ax_pos.y1 - ax_pos.y0])
+	fig_m.colorbar(cax, cax=cbar_ax)
 
 	# plot std devs of pairs with most information gain
 	test = np.arange(n_windows) * n_windows
@@ -597,9 +757,19 @@ mp.close(fig_d)
 fig_e.subplots_adjust(hspace=0)
 fig_e.savefig(io_base + 'most_correlated_stddevs.pdf', bbox_inches='tight')
 mp.close(fig_e)
+fig_m_name = io_base + 'sorted_inf_gains_'
+if group_by_fam:
+	fig_m_name += 'fam_' + sort_by
+else:
+	fig_m_name += dist_met
+	if opt_over_elem:
+		fig_m_name += '_min_tot_dist'
+	else:
+		fig_m_name += '_best_first'
+fig_m.savefig(fig_m_name + '.pdf', bbox_inches='tight')
+mp.close(fig_m)
 
 # additional plots for target elements
-tgts = ['Ce', 'Nd']
 for tgt in tgts:
 	tgt_windows = [ind for ind, label in enumerate(wlabels) \
 				   if label == tgt]
@@ -670,15 +840,29 @@ for tgt in tgts:
 				else:
 					ax = axes[i, k]
 				ax.plot(tot_inf_gain)
+				y_min, y_max = ax.get_ylim()
 				for j in range(n_windows - 2):
 					ax.plot([j, j + 1], tot_inf_gain[j: j + 2], color=cols[j])
-					ax.axvline(j, ls='--', color='grey', zorder=0)
-				ax.set_xlabel('element')
+					ax.plot([j, j], [y_min, tot_inf_gain[j]], \
+							color=cols[j], ls=':')
+				ax.set_xlabel(r'element $j$')
 				ax.set_ylabel(r'$\log|C_{ii|j}| - \log|C_{ii}|$')
+				ax.set_ylabel(r'$\log|C_{{\rm ' + tgt + \
+							  r'|}j}| - \log|C_{\rm ' + tgt + r'}|$')
 				xticklabels = [wlabels[mpw] for mpw in most_pred_w]
 				ax.set_xticks(np.arange(n_windows - 1))
 				ax.set_xticklabels(xticklabels, rotation=90)
 				ax.set_xlim(0, n_windows - 2)
+				xticklabels = ax.get_xticklabels()
+				for j in range(n_windows - 1):
+					xtl_text = xticklabels[j].get_text()
+					if xtl_text in families:
+						xticklabels[j].set_color(cols_fam[families[xtl_text]])
+						if families[xtl_text] == families[tgt]:
+							xticklabels[j].set_fontweight('bold')
+							#ax.text(0.85, 0.9, r'$i=$' + tgt, transform=ax.transAxes, \
+				#		color=cols_fam[families[tgt]], fontsize=14, \
+				#		bbox=dict(edgecolor='black', facecolor='None'))
 
 				# plot std devs!
 				if n_tgt_windows == 1:
@@ -701,6 +885,7 @@ for tgt in tgts:
 							wl_end[tgt_windows[i]] - x_bar)
 				ax.set_ylim(0.99 * np.min(cond_stddev), \
 							1.01 * np.max(full_stddev))
+				#ax.set_yscale('log', nonposy='clip')
 
 		# finish off plots
 		fig.subplots_adjust(hspace=0)

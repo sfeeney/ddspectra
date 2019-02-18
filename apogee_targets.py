@@ -52,7 +52,7 @@ def vac2air_alt(l):
 # settings
 n_to_load = 30000
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5'
-window = 'data/centers_subset2_ce_nd.txt'
+window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt'
 ce_lines_air = np.array([15784.75, 16376.48, 16595.18])
 nd_lines_air = np.array([16053.628])
 
@@ -85,13 +85,13 @@ for n_file in range(1, 4):
 								 return_wl=True)
 	for i in range(1):
 
-		# completely masked in first Cerium window
+		# completely masked in first Ce window
 		w_center = wdata_ce[i + 1]
 		w_indices = (wl >= w_center - 2.5) & (wl <= w_center + 2.5)
 		min_std = np.min(full_data[w_indices, :, 1], axis=0)
 		i_tgt_ce += list(n_loaded + np.argwhere(min_std > 1000.0)[:, 0])
 
-		# completely masked in first Cerium window
+		# completely masked in first Nd window
 		w_center = wdata_nd[i + 1]
 		w_indices = (wl >= w_center - 2.5) & (wl <= w_center + 2.5)
 		min_std = np.min(full_data[w_indices, :, 1], axis=0)
@@ -131,8 +131,12 @@ np.savetxt('data/ids_lowest_{:d}_snr.txt'.format(n_save), \
 		   inds_sorted[0: n_save], fmt='%d')
 
 # save all IDs for completeness
-i_all = i_tgt_ce + i_tgt_nd + inds_sorted[0: n_save]
+i_all = i_tgt_ce[0: n_save] + i_tgt_nd[0: n_save] + inds_sorted[0: n_save]
 used = set()
 i_all_unique = [x for x in i_all if x not in used and (used.add(x) or True)]
 np.savetxt('data/ids_ce_nd_1_fully_masked_lowest_{:d}_snr.txt'.format(n_save), \
 		   i_all_unique, fmt='%d')
+
+ids = np.array([0, 1, 10, 16, 20, 21])
+for i in range(len(ids)):
+	print ids[i], all_ids[i_all_unique[ids[i]]], snrs[i_all_unique[ids[i]]]
