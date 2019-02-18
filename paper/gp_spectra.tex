@@ -239,26 +239,35 @@ We take the 29502 red clump stars identified in the APOGEE dataset with their 85
     \centering
     \caption{Elemental windows.}
     \label{tab:window_centres}
-    \begin{tabular}{lcc}
+    \begin{tabular}{lc}
         \hline
-        element & window & window \\
-         & centre 1 & centre 2 \\
+        element & window centre / \AA \\
         \hline
-        Al & 15972.905 & - \\
-        C & 15479.107 & 15582.101 \\
-        Ca & 16161.807 & - \\
-        Cu & 16010.023 & - \\
-        Fe & 15494.733 & 15505.643 \\
-        Mg & 15425.309 & 15697.701 \\
-        Mn & 15162.885 & 15221.867 \\
-        N & 15161.42 & 15321.871 \\
-        Na & 16393.443 & - \\
-        Ni & 15559.517 & 15758.315 \\
-        O & 15269.893 & 15631.468 \\
-        Si & 15365.335 & 15964.753 \\
-        Ti & 15190.779 & 15339.241 \\
-        Ce & 15789.063 & 16380.954 \\
-        Nd & 16058.014 & - \\
+        Al & 16723.500 \\
+        C & 15582.101 \\
+        Ca & 16155.176 \\
+        Ce & 15789.063 \\
+        Co & 16158.700 \\
+        Cr & 15684.264 \\
+        Cu & 16010.023 \\
+        Fe & 15495.100 \\
+        Ge & 16764.238 \\
+        K & 15167.081 \\
+        Mg & 15745.000 \\
+        Mn & 15221.867 \\
+        N & 15321.871 \\
+        Na & 16378.276 \\
+        Nd & 15372.342 \\
+        Ni & 15559.517 \\
+        O & 15760.300 \\
+        P & 15715.930 \\
+        Rb & 15293.534 \\
+        S & 15482.319 \\
+        Si & 15964.600 \\
+        Ti & 15339.241 \\
+        V & 15929.052 \\
+        Y & 15624.142 \\
+        Yb & 16502.973 \\
         \hline
     \end{tabular}
 \end{table}
@@ -269,15 +278,15 @@ We take the 29502 red clump stars identified in the APOGEE dataset with their 85
 
 \subsection{Validation of Methodology: Predicting Unmeasured Spectral Regions}
 
-To avoid the complications of comparing data gathered by different spectrographs we validate our model and code by artificially masking a portion of one of our APOGEE spectra, namely the 15789 \AA\ Cerium (Ce II) window of our lowest-SNR star (2M18335753-1302240), with an SNR measurement of \textcolor{blue}{[write down SNR]}. 
+To avoid the complications of comparing data gathered by different spectrographs we validate our model and code by artificially masking a portion of one of our APOGEE spectra, namely the 15789 \AA\ Cerium (Ce II) window of our lowest-SNR star (2M18335753-1302240), with an SNR measurement of \mkn{[write down SNR]}. 
 
 
-We select the Ce II line because it is a high-value detection in the APOGEE spectra region. This identification (Cuhna+ 2017) and subsequent validation of the prospect of making measurements from this line has added the prospect of examining the s-process enrichment in the APOGEE survey, building on its reach and power in mapping the alpha, light and iron-peak elements across the disk and into the halo and local group (Majewski, Hayden, Nidever, Weinberg). Nine windows were identified in Cuhna et al., 2017 and we select one (unblended) Ce II window here (the line centered on 15784.75 \AA\ in air, converted to the vacuum scale of the APOGEE spectra, for validation of our methodology. \textcolor{blue}{[I recoded the conversion from scratch and all good]}
+We select the Ce II line because it is a high-value detection in the APOGEE spectra region. This identification (Cuhna+ 2017) and subsequent validation of the prospect of making measurements from this line has added the prospect of examining the s-process enrichment in the APOGEE survey, building on its reach and power in mapping the alpha, light and iron-peak elements across the disk and into the halo and local group (Majewski, Hayden, Nidever, Weinberg). Nine windows were identified in Cuhna et al., 2017 and we select one (unblended) Ce II window here (the line centered on 15784.75 \AA\ in air, converted to the vacuum scale of the APOGEE spectra, for validation of our methodology. \mkn{[I recoded the conversion from scratch and all good]}
 
 
 The measured data for this star are plotted in Figure~\ref{fig:recovery_test} as a solid black line, with the artificially masked region picked out as a dashed line. The 68\% credible interval for the posterior probability on the star's true spectrum is plotted as dark grey, with the corresponding prediction for the observed spectrum (which also takes into account the uncertainty on the observations) plotted in light grey. This prediction (the posterior predictive distribution of the measured data) is in excellent agreement with the measured data, indicating that our model is capable of inpainting masked regions without bias. Note, in addition, that the uncertainty on the generated spectrum is much smaller than the measurement noise, demonstrating our method's ability to de-noise observed spectra.
 
-This de-noising property is relevant in the regime of extracting information from both weak lines and lower signal to noise data than typically or previously required. In addition to the neuron capture element, Cerium, the APOGEE spectral region has been shown to contain a number of Neodymium (Nd II) lines, which Hasselquist et al., 2016 estimates is detectable in $\approx$ 18 percent of APOGEE spectra, using equivalent width fitting techniques. Our expectation is this fraction will vastly improved given our Gaussian process modeling of the spectral lines which, similarly to our demonstration of the Ce line, can generate a spectral model with lower uncertainty than the measurement noise. \textcolor{blue}{SF: can you check I am saying this the right way, let's also point out the SNR of the star that we have Ce and Nd detections later on in the text.}
+This de-noising property is relevant in the regime of extracting information from both weak lines and lower signal to noise data than typically or previously required. In addition to the neuron capture element, Cerium, the APOGEE spectral region has been shown to contain a number of Neodymium (Nd II) lines, which Hasselquist et al., 2016 estimates is detectable in $\approx$ 18 percent of APOGEE spectra, using equivalent width fitting techniques. Our expectation is this fraction will vastly improved given our Gaussian process modeling of the spectral lines which, similarly to our demonstration of the Ce line, can generate a spectral model with lower uncertainty than the measurement noise. \mkn{SF: can you check I am saying this the right way, let's also point out the SNR of the star that we have Ce and Nd detections later on in the text.}
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_rec_test_recovery_zoom.pdf}
@@ -292,13 +301,13 @@ Our inference produces samples of the probability, mean spectrum and covariance 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_low_rank_covariance.pdf}
-    \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right). \textcolor{red}{[This Figure demonstrates that the spectral pixels are highly correlated. If uncorrelated would expect purely white and if perfectly correlated would expect blue and red (positive and negative correlations respectively).]}}
+    \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right). \mkn{[This Figure demonstrates that the spectral pixels are highly correlated. If uncorrelated would expect purely white and if perfectly correlated would expect blue and red (positive and negative correlations respectively).]}}
     \label{fig:inferred_cov}
 \end{figure*}
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_gp_realizations.pdf}
-    \caption{Mean-posterior mean spectrum (black), and 50 realizations drawn from our Gaussian Process model, conditioned on the APOGEE data, coloured purple to yellow according to their flux in the first spectral bin.\textcolor{red}{ [Add to caption very explicit that this is another visualisation to complement Figure 3, about how strongly correlated everything is. If was purple to yellow clearly everything entirely correlated, if no structure in colour entirely uncorrelated.]  }}
+    \caption{Mean-posterior mean spectrum (black), and 50 realizations drawn from our Gaussian Process model, conditioned on the APOGEE data, coloured purple to yellow according to their flux in the first spectral bin.\mkn{ [Add to caption very explicit that this is another visualisation to complement Figure 3, about how strongly correlated everything is. If was purple to yellow clearly everything entirely correlated, if no structure in colour entirely uncorrelated.]  }}
     \label{fig:gp_reals}
 \end{figure*}
 
@@ -320,7 +329,7 @@ number of classes, high-dim inference
 
 
 predictivity
-Here we measure information gain. Given one element, how much information do we gain by measuring one more element, and then another. Importantly, we have the caveat that this is for elements measured from these particular spectral regions, could change as a function of some lines \textcolor{blue}{[Should we run two windows through for every element? On mkn to do list, send through two suggestions for each window.]}
+Here we measure information gain. Given one element, how much information do we gain by measuring one more element, and then another. Importantly, we have the caveat that this is for elements measured from these particular spectral regions, could change as a function of some lines. 
 Demonstrate for each family
 Metric is this: 
 What we find is essentially every single element adds information. Flat line would indicate no additional information, falls of exponentially at different rates for all the elements. Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on. 
