@@ -866,6 +866,7 @@ for tgt in tgts:
 							#ax.text(0.85, 0.9, r'$i=$' + tgt, transform=ax.transAxes, \
 				#		color=cols_fam[families[tgt]], fontsize=14, \
 				#		bbox=dict(edgecolor='black', facecolor='None'))
+				ax.set_title(tgt)
 
 				# plot std devs!
 				if n_tgt_windows == 1:
@@ -889,6 +890,7 @@ for tgt in tgts:
 				ax.set_ylim(0.99 * np.min(cond_stddev), \
 							1.01 * np.max(full_stddev))
 				#ax.set_yscale('log', nonposy='clip')
+				ax.set_title(tgt)
 
 		# finish off plots
 		fig.subplots_adjust(hspace=0)
