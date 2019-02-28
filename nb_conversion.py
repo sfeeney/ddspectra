@@ -208,12 +208,6 @@ if jeffreys_prior == 0:
 if recovery_test:
 	io_base += 'rec_test_'
 	i_rec_test = 21495
-	if win_wid == 2.5:
-		j_rec_test_lo = 0#345 # 375 # included
-		j_rec_test_hi = 10#368 # 398 # not included
-	elif win_wid == 1.0:
-		j_rec_test_lo = 135 # included
-		j_rec_test_hi = 144 # not included
 if win_wid != 2.5:
 	io_base += 'win_wid_{:3.1f}_'.format(win_wid).replace('.', 'p')
 
@@ -475,6 +469,12 @@ else:
 		# for comparison
 		if recovery_test:
 
+			wind_rec_test = wlabels.index('Ce')
+			if wind_rec_test == 0:
+				j_rec_test_lo = 0
+			else:
+				j_rec_test_lo = wendices[wind_rec_test - 1] # included
+			j_rec_test_hi = wendices[wind_rec_test]         # not included
 			rec_test_data = np.zeros(n_bins)
 			rec_test_var_noise = np.zeros(n_bins)
 			rec_test_data[:] = data[i_rec_test, :]

@@ -156,24 +156,26 @@ if recovery_test:
 	elif win_wid == 1.0:
 		j_rec_test_lo = 135 # included
 		j_rec_test_hi = 144 # not included
-group_by_fam = True
+group_by_fam = False
 sort_by = 'z' # 'z' or 'alpha'
 opt_over_elem = True
 dist_met = 'abs' # 'abs' or 'euc'
 
 # target elements
-tgts = ['C', 'Na', 'Mg', 'Fe', 'Ce']
-#families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'Mg': 2, 'Ti': 2, \
-#			'Si': 2, 'O': 2, 'Cu': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, \
-#			'Ce': 4, 'Nd': 4}
-families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'Mg': 2, 'Ti': 2, \
-			'Si': 2, 'O': 2, 'Cr': 3, 'Mn': 3, 'Fe': 3, 'Ca/Co': 3, 'Ni': 3, \
-			'Ce': 4, 'Nd': 4}
+tgts = ['C', 'Na', 'Mg', 'Fe', 'Ce', 'Ge']
+if win_wid == 1.0:
+	families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
+				'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Ca': 2, 'Cr': 3, \
+				'Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
+				'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+else:
+	families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
+				'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Cr': 3, \
+				'Ca/Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
+				'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
 n_fam = len(tgts)
-#cm_fam = mpcm.get_cmap('Set1')
-#cols_fam = [cm_fam(float(i) / 9.0) for i in range(n_fam)]
 cm_fam = mpcm.get_cmap('Paired')
-cols_fam = [cm_fam(float(i + 0.5) / 6.0) for i in range(n_fam)]
+cols_fam = [cm_fam((2.0 * i + 1.0) / 11.0) for i in range(n_fam)]
 
 # build up output filename
 if datafile is None:
@@ -587,10 +589,11 @@ for k in range(n_classes):
 				z_fams, i_w_fams = (t for t in zip(*sorted(zip(z_fams, i_w_fams))))
 				wlabels_sorted += [wlabels[i_w_fam] for i_w_fam in i_w_fams]
 			w_rems = list(set(wlabels).difference(wlabels_sorted))
-			i_w_rems = [wlabels.index(w_rem) for w_rem in w_rems]
-			z_rems = [watomnums[i_w_rem] for i_w_rem in i_w_rems]
-			z_rems, i_w_rems = (t for t in zip(*sorted(zip(z_rems, i_w_rems))))
-			wlabels_sorted += [wlabels[i_w_rem] for i_w_rem in i_w_rems]
+			if len(w_rems) > 0:
+				i_w_rems = [wlabels.index(w_rem) for w_rem in w_rems]
+				z_rems = [watomnums[i_w_rem] for i_w_rem in i_w_rems]
+				z_rems, i_w_rems = (t for t in zip(*sorted(zip(z_rems, i_w_rems))))
+				wlabels_sorted += [wlabels[i_w_rem] for i_w_rem in i_w_rems]
 		reorder = np.array([wlabels.index(wls) for wls in wlabels_sorted])
 		inf_gain_2d = inf_gain_2d[reorder, :]
 		inf_gain_2d = inf_gain_2d[:, reorder]
