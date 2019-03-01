@@ -182,6 +182,7 @@ diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+alt_win = True
 win_wid = 2.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
@@ -205,6 +206,8 @@ if precompress:
 		io_base += 'pca_'
 if jeffreys_prior == 0:
 	io_base += 'no_jp_'
+if alt_win:
+	io_base += 'alt_win_'
 if recovery_test:
 	io_base += 'rec_test_'
 	i_rec_test = 21495
@@ -390,7 +393,10 @@ else:
 				#for j in range(3):
 				#for j in range(2):
 				for j in range(1):
-					center = wdata[i][j + 1]
+					if alt_win:
+						center = wdata[i][j + 2]
+					else:
+						center = wdata[i][j + 1]
 					if center != 999.0:
 						centers.append(center)
 						elements.append(wdata[i][0])

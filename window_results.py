@@ -144,6 +144,7 @@ datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
+alt_win = True
 win_wid = 2.5
 eval_thresh = 1.0e-4
 n_gp_reals = 50
@@ -163,7 +164,7 @@ dist_met = 'abs' # 'abs' or 'euc'
 
 # target elements
 tgts = ['C', 'Na', 'Mg', 'Fe', 'Ce', 'Ge']
-if win_wid == 1.0:
+if win_wid < 2.5:
 	families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
 				'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Ca': 2, 'Cr': 3, \
 				'Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
@@ -193,6 +194,8 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if alt_win:
+	io_base += 'alt_win_'
 if recovery_test:
 	io_base += 'rec_test_'
 if win_wid != 2.5:
@@ -220,7 +223,10 @@ for i in range(len(wdata)):
 	#for j in range(3):
 	#for j in range(2):
 	for j in range(1):
-		center = wdata[i][j + 1]
+		if alt_win:
+			center = wdata[i][j + 2]
+		else:
+			center = wdata[i][j + 1]
 		if center != 999.0:
 			centers.append(center)
 			elements.append(wdata[i][0])
