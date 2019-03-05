@@ -300,13 +300,13 @@ This de-noising property is relevant in the regime of extracting information fro
 Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated ({\bf discuss potential kernel choices?}). Its eigenspectrum also decays rapidly: only 241 of 557 eigenmodes have eigenvalues larger than 1/100 of the maximum. A low-rank approximation to the mean covariance retaining only these eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 500 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 12 if 241 modes were retained). Na\"ively projecting the data onto the largest principal components of the sample covariance matrix prior to inference severely degrades performance. Modifying the hierarchical model (along the lines of {\bf citations}) to explicitly infer a rank-deficient covariance matrix is left to future work.
 
 \begin{figure*}
-	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_low_rank_covariance.pdf}
+	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_low_rank_covariance.pdf}
     \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right). \mkn{[This Figure demonstrates that the spectral pixels are highly correlated. If uncorrelated would expect purely white and if perfectly correlated would expect blue and red (positive and negative correlations respectively).]}}
     \label{fig:inferred_cov}
 \end{figure*}
 
 \begin{figure*}
-	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_gp_realizations.pdf}
+	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_gp_realizations.pdf}
     \caption{Mean-posterior mean spectrum (black), and 50 realizations drawn from our Gaussian Process model, conditioned on the APOGEE data, coloured purple to yellow according to their flux in the first spectral bin.\mkn{ [Add to caption very explicit that this is another visualisation to complement Figure 3, about how strongly correlated everything is. If was purple to yellow clearly everything entirely correlated, if no structure in colour entirely uncorrelated.]  }}
     \label{fig:gp_reals}
 \end{figure*}
@@ -319,7 +319,7 @@ true spectra. fit to observations. inpainting, denoising. quantify? any underper
 number of classes, high-dim inference
 
 \begin{figure*}
-	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_save_spectra.pdf}
+	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_save_spectra.pdf}
     \caption{Observed spectra (pink shaded regions) and inferred ``true'' spectra (grey shaded regions) for six interesting examples illustrating our ability to inpaint and denoise. From top: two spectra with the 15789 \AA\ Cerium window fully masked; two spectra with the 16058 \AA\ Neodymium window fully masked; the two lowest signal-to-noise spectra. The signal-to-noise ratios of these stars are 49, 63, 75, 41, 21 and 23, respectively.}
     \label{fig:inpainting_denoising_examples}
 \end{figure*}
@@ -335,33 +335,39 @@ Metric is this:
 What we find is essentially every single element adds information. Flat line would indicate no additional information, falls of exponentially at different rates for all the elements. Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on. 
 
 \begin{figure*}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_c_inf_gain.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_na_inf_gain.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_mg_inf_gain.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_fe_inf_gain.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_ce_inf_gain.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_ge_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_na_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_mg_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_inf_gain.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_inf_gain.pdf}
     \caption{Information gains for our C, Na, Mg, Fe, Ce and Ge windows given observations of other elemental windows. Each point on the x-axis states the most informative window remaining after conditioning on all previous elemental windows. Thus, one would learn most about the C window (top left) by observing Y, then adding Ce, Cr, {\it et cetera}. Elements belonging to illustrative families are indicated by coloured labels, with the predicted element's family members picked out in bold.}
     \label{fig:single_element_information}
 \end{figure*}
 
 \begin{figure*}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_c_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_na_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_mg_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_fe_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_ce_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_ge_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_na_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_mg_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_conditional_stddevs.pdf}
     \caption{Conditional standard deviations for our C, Na, Mg, Fe, Ce and Ge windows given observations of other elemental windows, added in the order set out in the corresponding panel of Fig.~\ref{fig:single_element_information}. The uncertainty on the predicted spectrum without observations of other windows is shown in black. \bdw{Is this the same as the noise?} \smf{No.} }
     \label{fig:single_element_errs}
 \end{figure*}
 
 \begin{figure*}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_sorted_inf_gains_fam_z.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_sorted_inf_gains_abs_min_tot_dist.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_sorted_inf_gains_fam_z.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_sorted_inf_gains_abs_min_tot_dist.pdf}
     \caption{Information gains for all pairs of elemental windows: the brighter the matrix element, the more informative the windows are about each other. Left: elements grouped according to their family, indicated by label colour. Right: elements grouped by similar information gains.}
     \label{fig:single_element_errs}
 \end{figure*}
+
+\begin{figure}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_sorted_inf_gains_abs_min_tot_dist.pdf}
+    \caption{Information gains for all pairs of elemental windows, with elements grouped by similar information gains, using five-\AA ngstr\"om-wide windows.}
+    \label{fig:single_element_errs_wide}
+\end{figure}
 
 
 
