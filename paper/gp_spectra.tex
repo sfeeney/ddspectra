@@ -90,11 +90,11 @@ This is a simple template for authors to write new MNRAS papers.
 The abstract should briefly describe the aims, methods, and main results of the paper.
 It should be a single paragraph not more than 250 words (200 words for Letters).
 No references should appear in the abstract.
-Context:
-Aims: 
-Methods:
-Results: 
-Conclusions :
+Context: Little empricial characterisation of information content in the spectra
+Aims: Make models of the spectra to understand how spectral element features are correalted and how well we can predict missing parts of the spectra
+Methods: Use Gaussian Process modeling
+Results: Find that spectral absorption features of N elements are highly (but not perfectly) correlated by that all elements add additional information. Can use concert of measurements to predict missing very well
+Conclusions :Use Gaussian process modeling to make first steps toward information content of element features. Futhermore we produce a generative model of the spectra and effectively de-noise to enable higher precision at lower SNR - important for optimising data and information extraction. 
 \end{abstract}
 
 % Select between one and six entries from the list of approved keywords.
@@ -198,9 +198,34 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{bhm_plot.pdf}
-    \caption{Network diagram for our hierarchical Bayesian model.}
+    \caption{Network diagram for our hierarchical Bayesian model which is a graphical representation of our implemented modeling of the data. See Table 1 for the parameter descriptions.}
     \label{fig:network_diagram}
 \end{figure}
+%what all parameters are, what all of the observables are and what the relationships are between the two
+%table 1 and Figure 1 set out all of the probability distributions that describe the model
+%the second part of Table 1 sets out the conditional distributions that you need to perform Gibbs sampling.  
+
+
+\begin{table}
+    \centering
+    \caption{Parameters used in our probabilistic model.}
+    \label{tab:params}
+    \begin{tabular}{ll}
+        \hline
+        parameter & description \\
+        \hline
+        $\specmean$ & $\uniform\left(-\infty,\infty\right)$ \\
+        $\speccov$ & $\left| \speccov \right|^{-\left(\nb+1\right)/2}$ \\
+        $\alpha$ & $\dirichlet\left(\alpha\right)$ \\
+        $\classprobs$ & $\dirichlet\left(\alpha\right)$ \\
+        $\objspec_i$  \\
+        $\objclass_i$ \\
+        $\objdata_i$ & $\normal\left(\objspec_i,\objnoise_i\right)$ \\
+        $\objnoise_i$ & $\normal\left(\objspec_i,\objnoise_i\right)$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
 
 \begin{table*}
     \centering
@@ -233,11 +258,11 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-We take the 29502 red clump stars identified in the APOGEE dataset with their 8575 pixels over the spectral range 15100.80-16999.81 \AA, using $\nb = 8575$ spectral bins. Inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances (described in citation). Specifically, we process all spectral bins within $\pm2.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 557$ and hence inversion time by a factor of $\sim3500$.
+We take the 29502 red clump stars identified in the APOGEE dataset with their 8575 pixels over the spectral range 15100.80-16999.81 \AA, using $\nb = 8575$ spectral bins. Inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances (described in citation). Specifically, we process all spectral bins within $\pm2.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 557$ and hence inversion time by a factor of $\sim3500$. These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
 
 \begin{table}
     \centering
-    \caption{Elemental windows.}
+    \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4.}
     \label{tab:window_centres}
     \begin{tabular}{lc}
         \hline
@@ -290,7 +315,7 @@ This de-noising property is relevant in the regime of extracting information fro
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_rec_test_recovery_zoom.pdf}
-    \caption{Recovery test. Artificially masking the 15789 \AA\ Cerium window for the lowest-SNR star results in an inferred true spectrum (dark-grey shaded region) that is entirely in agreement with the measurement (solid black line) once noise is taken into account (light-grey shaded region).}
+    \caption{This Figure shows the validation of the model and the method showing the recovery of an artificially masked portion of the spectra. This region corresponds to a Cerium line centered around 15789 \AA\ for a star with a SNR of 23 \textbf{check this SNR}, which demonstrates the performance of the model even for low SNR data. The inferred spectrum is shown in the dark-grey shaded region and the measured spectra is shown in the solid black line. The model is in excellent agreement with the data once noise is taken into account (light-grey shaded region).}
     \label{fig:recovery_test}
 \end{figure}
 
