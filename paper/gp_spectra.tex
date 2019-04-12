@@ -196,7 +196,7 @@ Describe Gaussian Process. True spectrum for each star is drawn from a GP with a
 
 Data are observed with Gaussian noise that is uncorrelated between spectral bins; masked pixels are assigned unit flux and effectively infinite noise uncertainties. These data, the inferred parameters, the likelihood and priors would fully specify the model if we had only one class. To account for the fact that the red clump might consist of multiple distinct populations (or one population whose distribution of true spectra is non-Gaussian) we allow for multiple classes to exist in our model. In this instance, each star is also assigned membership to a particular class. Class memberships are drawn from categorical distributions, with class probabilities drawn from a symmetric Dirichlet prior with concentration parameter $\alpha=1$.
 
-The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fig:network_diagram}, with the parameters, data and constants described in Table~\ref{tab:params} and the probability distributions defining each link set out in Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each latent variable to be written analytically, and we hence use Gibbs sampling to estimate the joint posterior.
+The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fig:network_diagram}, with the parameters, data and constants described in Table~\ref{tab:params} and the probability distributions defining each link set out in Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each latent variable to be written analytically, and we hence use Gibbs sampling~\cite{Geman_and_Geman:1984Geman_and_Geman:1984} to estimate the joint posterior.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{bhm_plot.pdf}
@@ -263,7 +263,7 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-We take the 29502 red clump stars identified in the APOGEE dataset with their 8575 pixels over the spectral range 15100.80-16999.81 \AA, using $\nb = 8575$ spectral bins. Inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances (described in citation). Specifically, we process all spectral bins within $\pm2.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 557$ and hence inversion time by a factor of $\sim3500$. These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
+We take the 29502 red clump stars identified in the APOGEE dataset with their $\nb = 8575$ spectral bins over the range 15100.80-16999.81 \AA. Inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances (described in citation). Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
 
 \begin{table}
     \centering
@@ -382,11 +382,18 @@ What we find is essentially every single element adds information. Flat line wou
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_inf_gain.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_inf_gain.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_inf_gain.pdf}
-    \caption{Information gains for our C, Na, Mg, Fe, Ce and Ge windows given observations of other elemental windows. Each point on the x-axis states the most informative window remaining after conditioning on all previous elemental windows. Thus, one would learn most about the C window (top left) by observing Y, then adding Ce, Cr, {\it et cetera}. Elements belonging to illustrative families are indicated by coloured labels, with the predicted element's family members picked out in bold.}
+    \caption{These set of figures represent the information gains for the windows corresponding to the elements C, Na, Mg, Fe, Ce and Ge, as shown in the top of each sub-panel, given observations of the other 24 elemental windows. Each of the element windows is shown on the x-axis, ordered from the most informative window with respect to the primary selected element, that remains after conditioning on all previous element windows. To take the top right-hand sub-panel as an example: one would learn the most about the C window by observing Ni, then adding Ce, Ti {\it et cetera}. The y-axis quantifies this predictivity of successive elements as a measure of information gain, which is the change in entropy of the system provided by conditioning on another piece of information. Note the changing range in scale of the measure of information gain for the six different elements. The gain of the 24 additional element windows in the example of the the C primary window is less than the information gain for the Na primary windows. A larger overall difference is indicative of a larger overall information gain by measuring more elements. Note that the near exponential element-information gain relation, while becoming far less steep, does not entirely flatten, which indicates that each single element adds additional information to learn about the primary element. Although elements are highly correlated, there is a small intrinsic variance in each element that is not predicted in full by the remaining set of windows. }
     \label{fig:single_element_information}
 \end{figure*}
 
-
+% most predictive
+% y axis quantifes the information gain. 
+%the information gain is defined here as the difference between the log of the ratio of the determinant of the covariance matrix conditioned on observation in some other window and divided by the covariance matrix not condioned on any other obsservation. 
+%log of the determinant of the covariance matirx tells  you the change in entropy of the system that you would get by conditioning on another piece of information.
+% so it is very much an amoutn of information.
+%low dimensional to some threshold
+%two things - not looking at single elemental abundances because there might be other stuff in those windows, we are not using the same basis as abundances. Even if we were looking at abundances, not perfectly predictive. 
+%intrinsic variance is coming out in this figure. 
 
 \begin{figure*}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_conditional_stddevs.pdf}
@@ -395,24 +402,30 @@ What we find is essentially every single element adds information. Flat line wou
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_conditional_stddevs.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_conditional_stddevs.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_conditional_stddevs.pdf}
-    \caption{Conditional standard deviations for our C, Na, Mg, Fe, Ce and Ge windows given observations of other elemental windows, added in the order set out in the corresponding panel of Fig.~\ref{fig:single_element_information}. The uncertainty on the predicted spectrum without observations of other windows is shown in black. \bdw{Is this the same as the noise?} \smf{No.} }
+    \caption{These six sub-panels correspond to the same element windows as shown in Figure 6 of C, Na, Mg, Fe, Ce and Ge, as indicated in the top of each panel. In this Figure, the x-axis is centered on the wavelength of each primary element and the y-axis shows the conditional standard deviations for our  given observations of other elemental windows, added in the order set out in the corresponding panel of Fig.~\ref{fig:single_element_information}. The black line shows the uncertainty on the predicted spectrum without observations of other windows. The remaining 24 lines then correspond to the element windows ordered on the x-axis of the corresponding sub-panels of Fig.~\ref{fig:single_element_information}, from the most to least informative element window. This corresponds to the highest, in purple, to lowest, in yellow uncertainties on the predicted spectrum as each additional element is added. Note the uncertainties decrease less as the element-information gain relation becomes less steep in Fig.  Fig.~\ref{fig:single_element_information}. \textcolor{blue}{center on wavelength center and potentially add in the noise of the data to show we do better with the model}}
     \label{fig:single_element_errs}
 \end{figure*}
+%for each pixel shows the variance
+%mean covariance matrix 
+% in the order of figure 6 and coloured from black to yellow. All 24 are there. 
+%centered on the nearest integer wavelength to the line center 
 
 \begin{figure*}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_sorted_inf_gains_fam_z.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_sorted_inf_gains_abs_min_tot_dist.pdf}
-    \caption{Information gains for all pairs of elemental windows: the brighter the matrix element, the more informative the windows are about each other. Left: elements grouped according to their family, indicated by label colour. Right: elements grouped by similar information gains.}
+    \caption{These two matricies show the information gains for pairs of elemental windows where a more negative measure represents a higher information gain. The information gain shown in the colourbar is defined as per  Fig.~\ref{fig:single_element_information}. Therefore, the brighter (more yellow) the matrix element, the more informative the windows are about each other. At left, the elements are grouped according to their nucleosynthetic family, indicated by label colour of the elements listed on the x and y axes (see the text). \textcolor{blue}{mkn: add a description to the text of the different families and what color they appear in}. At right, the elements are grouped by their similar information gain. Note that the iron-peak family of elements shows the highest paired information gains confined within this family (Ni, Mn, Fe, Cr) - these elements are most predictive of one another, followed by the alpha-element family of elements (Ti, Si, Mg). However, the ordering of elements by their information gain similarity does not discretely separate elements into their nucleosynthetic families, particularly beyond the iron-peak and alpha-elements. {mkn: make sure to put in the text that this is windows and sensitive to whatever else is in there as not abudanance measurement, so need to be clear about being about windows and not a discrete measurement of abundance correlation etc.}. 
+    
+    Information gains for all pairs of elemental windows: the brighter the matrix element, the more informative the windows are about each other. Left: elements grouped according to their family, indicated by label colour. Right: elements grouped by similar information gains.}
     \label{fig:single_element_errs}
 \end{figure*}
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_sorted_inf_gains_abs_min_tot_dist.pdf}
-    \caption{Information gains for all pairs of elemental windows, with elements grouped by similar information gains, using five-\AA ngstr\"om-wide windows.}
+    \caption{This Figure is the same as the right hand panel of Figure 8 (with elements grouped by similar information gains) except using wider 5 \AA windows, compared to the 3 \AA\ windows in Figure 8.  This Figure highlights the sensitivity of the information gain to the bandwidth selected to indicate each element in determination of which elements are most similar to one another. Although the similarity ranking has changed, the iron peak elements remain grouped as before and two of the alpha-elements (Mg and Si) are adjacent, as previously.\textcolor{blue}{mkn: make sure to highlight this aspect of our analysis in the text, that we show that we can denoise spectra for abundance measurements but here using the pixels themselves not isolated abundances to examine correlations and information, which is totally legitimate and useful just need to come back to this. }}
     \label{fig:single_element_errs_wide}
 \end{figure}
 
-
+%through similarity
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
