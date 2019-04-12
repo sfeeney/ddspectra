@@ -33,6 +33,8 @@
 \usepackage{bm}
 
 \newcommand{\nb}{n_{\rm b}}
+\newcommand{\nc}{n_{\rm c}}
+\newcommand{\ns}{n_{\rm s}}
 \newcommand{\prob}{{\rm P}}
 \newcommand{\normal}{{\rm{N}}}
 \newcommand{\uniform}{{\rm U}}
@@ -194,7 +196,7 @@ Describe Gaussian Process. True spectrum for each star is drawn from a GP with a
 
 Data are observed with Gaussian noise that is uncorrelated between spectral bins; masked pixels are assigned unit flux and effectively infinite noise uncertainties. These data, the inferred parameters, the likelihood and priors would fully specify the model if we had only one class. To account for the fact that the red clump might consist of multiple distinct populations (or one population whose distribution of true spectra is non-Gaussian) we allow for multiple classes to exist in our model. In this instance, each star is also assigned membership to a particular class. Class memberships are drawn from categorical distributions, with class probabilities drawn from a symmetric Dirichlet prior with concentration parameter $\alpha=1$.
 
-The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fig:network_diagram}, and the probability distributions defining each link are set out in Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each latent variable to be written analytically, and we hence use Gibbs sampling to estimate the joint posterior.
+The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fig:network_diagram}, with the parameters, data and constants described in Table~\ref{tab:params} and the probability distributions defining each link set out in Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each latent variable to be written analytically, and we hence use Gibbs sampling to estimate the joint posterior.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{bhm_plot.pdf}
@@ -208,20 +210,23 @@ The network diagram for our hierarchical Bayesian model is shown in Fig.~\ref{fi
 
 \begin{table}
     \centering
-    \caption{Parameters used in our probabilistic model.}
+    \caption{Model parameters, data and constants.}
     \label{tab:params}
     \begin{tabular}{ll}
         \hline
-        parameter & description \\
+        quantity & description \\
         \hline
-        $\specmean$ & $\uniform\left(-\infty,\infty\right)$ \\
-        $\speccov$ & $\left| \speccov \right|^{-\left(\nb+1\right)/2}$ \\
-        $\alpha$ & $\dirichlet\left(\alpha\right)$ \\
-        $\classprobs$ & $\dirichlet\left(\alpha\right)$ \\
-        $\objspec_i$  \\
-        $\objclass_i$ \\
-        $\objdata_i$ & $\normal\left(\objspec_i,\objnoise_i\right)$ \\
-        $\objnoise_i$ & $\normal\left(\objspec_i,\objnoise_i\right)$ \\
+        $\ns$ & number of stars (29502) \\
+        $\nc$ & number of classes (default: 1) \\
+        $\nb$ & number of spectral bins (default: 343) \\
+        $\specmean_k$ & mean spectrum of $k^{\rm th}$ class \\
+        $\speccov_k$ & intrinsic spectral covariance of $k^{\rm th}$ class \\
+        $\classprob_k$ & $k^{\rm th}$ class probability: fraction of stars in $k^{\rm th}$ class \\
+        $\alpha$ & concentration parameter of Dirichlet prior on class fractions \\
+        $\objspec_i$ & true spectrum of $i^{\rm th}$ star \\
+        $\objclass_i$ & class assignment of $i^{\rm th}$ star \\
+        $\objdata_i$ & observed spectrum of $i^{\rm th}$ star \\
+        $\objnoise_i$ & noise covariance matrix of $i^{\rm th}$ star \\
         \hline
     \end{tabular}
 \end{table}
@@ -303,10 +308,10 @@ We take the 29502 red clump stars identified in the APOGEE dataset with their 85
 
 \subsection{Validation of Methodology: Predicting Unmeasured Spectral Regions}
 
-To avoid the complications of comparing data gathered by different spectrographs we validate our model and code by artificially masking a portion of one of our APOGEE spectra, namely the 15789 \AA\ Cerium (Ce II) window of our lowest-SNR star (2M18335753-1302240), with an SNR measurement of \mkn{[write down SNR]}. 
+To avoid the complications of comparing data gathered by different spectrographs we validate our model and code by artificially masking a portion of one of our APOGEE spectra, namely the 15789 \AA\ Cerium (Ce II) window of our lowest-SNR star (2M18335753-1302240), with an SNR measurement of 21 as listed in the APOGEE allStar file. 
 
 
-We select the Ce II line because it is a high-value detection in the APOGEE spectra region. This identification (Cuhna+ 2017) and subsequent validation of the prospect of making measurements from this line has added the prospect of examining the s-process enrichment in the APOGEE survey, building on its reach and power in mapping the alpha, light and iron-peak elements across the disk and into the halo and local group (Majewski, Hayden, Nidever, Weinberg). Nine windows were identified in Cuhna et al., 2017 and we select one (unblended) Ce II window here (the line centered on 15784.75 \AA\ in air, converted to the vacuum scale of the APOGEE spectra, for validation of our methodology. \mkn{[I recoded the conversion from scratch and all good]}
+We select the Ce II line because it is a high-value detection in the APOGEE spectra region. This identification (Cuhna+ 2017) and subsequent validation of the prospect of making measurements from this line has added the prospect of examining the s-process enrichment in the APOGEE survey, building on its reach and power in mapping the alpha, light and iron-peak elements across the disk and into the halo and local group (Majewski, Hayden, Nidever, Weinberg). Nine windows were identified in Cuhna et al., 2017 and we select one (unblended) Ce II window here (the line centered on 15784.75 \AA\ in air, converted to the vacuum scale of the APOGEE spectra, for validation of our methodology. 
 
 
 The measured data for this star are plotted in Figure~\ref{fig:recovery_test} as a solid black line, with the artificially masked region picked out as a dashed line. The 68\% credible interval for the posterior probability on the star's true spectrum is plotted as dark grey, with the corresponding prediction for the observed spectrum (which also takes into account the uncertainty on the observations) plotted in light grey. This prediction (the posterior predictive distribution of the measured data) is in excellent agreement with the measured data, indicating that our model is capable of inpainting masked regions without bias. Note, in addition, that the uncertainty on the generated spectrum is much smaller than the measurement noise, demonstrating our method's ability to de-noise observed spectra.
@@ -315,7 +320,7 @@ This de-noising property is relevant in the regime of extracting information fro
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_rec_test_recovery_zoom.pdf}
-    \caption{This Figure shows the validation of the model and the method showing the recovery of an artificially masked portion of the spectra. This region corresponds to a Cerium line centered around 15789 \AA\ for a star with a SNR of 23 \textbf{check this SNR}, which demonstrates the performance of the model even for low SNR data. The inferred spectrum is shown in the dark-grey shaded region and the measured spectra is shown in the solid black line. The model is in excellent agreement with the data once noise is taken into account (light-grey shaded region).}
+    \caption{This Figure shows the validation of the model and the method showing the recovery of an artificially masked portion of the spectra. This $\approx$ 22 \AA\ region of spectra is centered on Cerium line with a central wavelength of 15789 \AA\ (see Table 1). We select a star with a SNR of 21 for this demonstration of our model recovery, to highlight the performance of the model even for very low SNR data. The inferred spectrum is shown in the dark-grey shaded region and the measured spectra is shown in the solid black line. The model is in excellent agreement with the data once noise is taken into account (light-grey shaded region).}
     \label{fig:recovery_test}
 \end{figure}
 
@@ -326,15 +331,26 @@ Our inference produces samples of the probability, mean spectrum and covariance 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_low_rank_covariance.pdf}
-    \caption{Mean-posterior covariance matrix (left), its low-rank approximation (centre) constructed from all eigenvectors with eigenvalues within $10^{-4}$ of the largest, and the residuals (right). \mkn{[This Figure demonstrates that the spectral pixels are highly correlated. If uncorrelated would expect purely white and if perfectly correlated would expect blue and red (positive and negative correlations respectively).]}}
+    \caption{At left, the mean-posterior covariance matrix of the 343 spectral pixels that we model, with the corresponding colour bar giving the magnitude of this covariance at far right (in units of flux$^2$). The divergent colour map shows the most positive and negative covariances in red and blue respectively and zero covariance as white. This matrix demonstrates that the spectral pixels are highly correlated. The middle panel shows the reduced-rank approximation of the full covariance matrix, constructed from all eigenvectors of the estimate of the mean covariance matrix, including the eigenvalues within $10^{-4}$ of the largest. This represents a 30 percent reduction in the number of pixels used to build the mean posterior. The residual (\times\ 500) of the mean posterior and reduced rank posterior is shown in the panel at far right.  The non-zero diagonal term represents that the variance of the data is (marginally) not entirely conserved in the rank reduction. }
     \label{fig:inferred_cov}
 \end{figure*}
+% to try to demonstrate how many 
+% can speed things up in the inference by reducing the rank of the covariance matrix which is a 30 percent reduction in the number of pixels. 
+%reduced rank puts null modes in the matrix - all structure in residuals is india
+% the low rank version is missing variance on the diagonal 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_gp_realizations.pdf}
-    \caption{Mean-posterior mean spectrum (black), and 50 realizations drawn from our Gaussian Process model, conditioned on the APOGEE data, coloured purple to yellow according to their flux in the first spectral bin.\mkn{ [Add to caption very explicit that this is another visualisation to complement Figure 3, about how strongly correlated everything is. If was purple to yellow clearly everything entirely correlated, if no structure in colour entirely uncorrelated.]  }}
+    \caption{The mean-posterior mean spectrum of our Gaussian process model is shown in black. A sample of 50 individual realizations drawn from our Gaussian Process model fit using the APOGEE data is shown coloured from purple to yellow, according to the measured flux in the first spectral bin. The color scale is shown at right. The coloured realisations are a complement to Figure 3 in that they are demonstrative of how correlated the pixels are. Entirely uncorrelated data would show no gradient structure in the color of the realisations whatsoever. We see a clear stratification of yellow to purple as  function of the flux magnitude for most of the pixels. \textcolor{blue}{add colorbar}}
     \label{fig:gp_reals}
 \end{figure*}
+
+%using samples of covariance matrix and samples of sample posterior you can draw examples of the spectra itself 
+%samples of mean and covariance and pick a randomly chosen sample and draw a realisation of that Gaussian process from that mean and covariance. 
+%mean spectrum m (posterior) and some covariance s and then have samples of those; black ine is the sum over i of the m/i 
+%realisations are gaussian with mean of mi and covafaince si) 
+%m$_i$, s$_i$, \specmean = \frac{\sum{i=1}{n}}{m_i}{n}; r $\sim$ N(\specmean_i, \speccov_i) 
+%\specmean\ and \speccov
 
 The posterior mean of the mean spectrum is plotted in black in Figure~\ref{fig:gp_reals}. The mean spectrum is extremely well constrained: its 68\% credible interval is narrower than the width of line. To illustrate the covariance structure captured by our model, we overlay 50 realizations drawn from our Gaussian-Process model conditioned on the APOGEE data, colour-coded by the value they take in the first spectral bin. These samples can be interpreted as examples of potential noiseless true spectra that could have led to the data. They illustrate the variability permitted by the model and highlight certain clear trends, most notably highly correlated differences in line depths.
 
@@ -345,7 +361,7 @@ number of classes, high-dim inference
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_save_spectra.pdf}
-    \caption{Observed spectra (pink shaded regions) and inferred ``true'' spectra (grey shaded regions) for six interesting examples illustrating our ability to inpaint and denoise. From top: two spectra with the 15789 \AA\ Cerium window fully masked; two spectra with the 16058 \AA\ Neodymium window fully masked; the two lowest signal-to-noise spectra. The signal-to-noise ratios of these stars are 49, 63, 75, 41, 21 and 23, respectively.}
+    \caption{This Figure shows 6 unique stars, all with low SNR, as demonstrative of our modeling capabilities in the realm of relatively poor data quality, to both inpaint and denoise the data. From top to bottom, the SNR of the stars are 49, 63, 75, 41, 21 and 23, respectively. The observed spectra is shown as the pink shaded regions (note the masked regions in the APOGEE spectra where data is missing for these stars) and the inferred ``true'' spectra from the model is shown in the grey shaded regions. There is excellent agreement between the model and data.  The spectral regions shown are our 25 elements from Table 1, centered at the centre wavelength of each element, with a bandwidth of $\pm$ 2.5 \AA. Note that the first two spectra have masked Cerium lines centered on 15789 \AA\, where the model infers the line profiles which could in principle be used to return a Cerium abundance for these stars. The middle two stars have the Neodymium line centered on 16058 \AA\ masked and here the model infers very weak line profiles at this central wavelengths, which renders recovery of this abundance unlikely (and across all SNR examined in this Figure). All other lines inferred by the model are essentially denoised versions of the spectra from which higher precision abundances can be in principle determined compared to using the originally observed spectra itself. }
     \label{fig:inpainting_denoising_examples}
 \end{figure*}
 
@@ -369,6 +385,8 @@ What we find is essentially every single element adds information. Flat line wou
     \caption{Information gains for our C, Na, Mg, Fe, Ce and Ge windows given observations of other elemental windows. Each point on the x-axis states the most informative window remaining after conditioning on all previous elemental windows. Thus, one would learn most about the C window (top left) by observing Y, then adding Ce, Cr, {\it et cetera}. Elements belonging to illustrative families are indicated by coloured labels, with the predicted element's family members picked out in bold.}
     \label{fig:single_element_information}
 \end{figure*}
+
+
 
 \begin{figure*}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_conditional_stddevs.pdf}
