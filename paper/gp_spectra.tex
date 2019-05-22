@@ -206,17 +206,54 @@ For our modeling we use the APOGEE red clump spectra from DR14 \citep{Majewski20
 
 %These make an ideal test case for our modeling being restricted in their range of effective temperature and surface gravity so we can assume that our overall measurements are driven by abundance variations and not systematic variations across stellar parameters. The metallicity range of the red clump stars span --1.0 $<$ [Fe/H] $<$ 0.5 and they are distributed from R$_{GAL}$ = 4 to 20 kpc. 
 
-The data have been downloaded from the APOGEE database and are radial velocity shifted back to the rest frame and continuum-normalised, with a slight SNR dependence on the continuum normalisation that we discover with our Gaussian Process modeling. The spectra cover the range 15100.80-16999.81 \AA, and comprise $\nb = 8575$ spectral bins. 
+The data have been downloaded from the APOGEE database and are radial velocity shifted back to the rest frame and continuum-normalised, with a slight SNR dependence on the continuum normalisation that we discover with our Gaussian Process modeling. The spectra cover the range 15100.80-16999.81 \AA, and comprise $\nb = 8575$ spectral bins. Repeated inversion of the $\nb \times \nb$ covariance matrices required for inference would be prohibitively slow, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances in consultation with Jon Holtzman and Matthew Shetrone \citep{Holtzman2015, Shetrone2015}. Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres specified in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. %These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
+
+\begin{table}
+    \centering
+    \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4.}
+    \label{tab:window_centres}
+    \begin{tabular}{lc}
+        \hline
+        element & window centre / \AA \\
+        \hline
+        Al & 16723.500 \\
+        C & 15582.101 \\
+        Ca & 16155.176 \\
+        Ce & 15789.063 \\
+        Co & 16158.700 \\
+        Cr & 15684.264 \\
+        Cu & 16010.023 \\
+        Fe & 15495.100 \\
+        Ge & 16764.238 \\
+        K & 15167.081 \\
+        Mg & 15745.000 \\
+        Mn & 15221.867 \\
+        N & 15321.871 \\
+        Na & 16378.276 \\
+        Nd & 15372.342 \\
+        Ni & 15559.517 \\
+        O & 15760.300 \\
+        P & 15715.930 \\
+        Rb & 15293.534 \\
+        S & 15482.319 \\
+        Si & 15964.600 \\
+        Ti & 15339.241 \\
+        V & 15929.052 \\
+        Y & 15624.142 \\
+        Yb & 16502.973 \\
+        \hline
+    \end{tabular}
+\end{table}
 
 \section{Methods}
 
-Gaussian processes are a conceptually simple yet extremely powerful tool for regression and classification~\citep{Rasmussen_Williams}. Put briefly, a Gaussian process is a set of random variables whose joint distribution is multivariate normal, and is therefore fully specified by a mean function and covariance function. By their (Gaussian) nature, Gaussian processes permit simple, often analytically tractable, inference of their mean and covariance functions given a set of (potentially noisy) observations, yielding flexible non-parametric fits to underlying trends in data and probabilistic predictions for new observations. As a result, Gaussian processes have found use throughout astronomy, from cosmology \citep{Bond_etal:1987} and cosmography \citep{Shafieloo_etal:2012} to models of instrumental systematics \citep{Gibson_etal:2012}, exoplanet populations \citep{DFM_etal:2014} and stellar spectra \citep{Czekala_etal:2017}.
+Gaussian processes are a conceptually simple yet extremely powerful tool for regression and classification~\citep{Rasmussen_Williams}. Put briefly, a Gaussian process is a set of random variables whose joint distribution is multivariate normal, and is therefore fully specified by a mean function and covariance function. By their (Gaussian) nature, Gaussian processes permit simple, often analytically tractable, inference of their mean and covariance functions given (potentially noisy) observations, yielding flexible non-parametric fits to underlying trends in data and probabilistic predictions for new observations. As a result, Gaussian processes have found use throughout astronomy, from cosmology \citep{Bond_etal:1987} and cosmography \citep{Shafieloo_etal:2012} to models of instrumental systematics \citep{Gibson_etal:2012}, exoplanet populations \citep{DFM_etal:2014} and stellar spectra \citep{Czekala_etal:2017}.
 
-In this work, we model the underlying ``true'' spectrum ($\objspec_i$), of the $i^{\rm th}$ APOGEE red clump star as a draw from a Gaussian process with a mean spectrum ($\specmean$) and covariance ($\speccov$) to be inferred from the data. In typical GP models, the covariance function is taken to be one of a number of standard kernels \citep{Rasmussen_Williams}, chosen to reflect known or assumed properties in the observation and/or physical process (e.g., stationarity, isotropy, or periodicity). In the following we do not assume an analytic form for our covariance function, but rather infer the correlations between the observed spectral bins, i.e., the individual elements of the covariance matrix. By doing so, we remove any potential for bias induced by a suboptimal kernel choice incorrectly enforcing stationarity, a single correlation length, or a particular line shape, for example. As a result, we can not make predictions for the spectra between the observed bins, though this would in principle be possible given stellar spectra observed on shifted or irregularly-sampled grids.
+In this work, we model the underlying ``true'' spectrum ($\objspec_i$), of the $i^{\rm th}$ APOGEE red clump star as a draw from a Gaussian process with a mean spectrum ($\specmean$) and covariance ($\speccov$) to be inferred from the data. In typical GP models, the covariance function is taken to be one of a number of standard kernels \citep{Rasmussen_Williams}, chosen to reflect known or assumed properties of the observation and/or physical process (e.g., stationarity, isotropy, or periodicity). In the following we do not assume an analytic form for our covariance function, but rather infer the correlations between the observed spectral bins, i.e., the individual elements of the covariance matrix. By doing so, we remove any potential for bias induced by a suboptimal kernel choice incorrectly enforcing stationarity, a single correlation length, or a particular line shape, for example. As a result, we can not make predictions for the spectra between the observed bins, though this would in principle be possible given stellar spectra observed on shifted or irregularly-sampled grids.
 
-We assume the spectra have been observed with Gaussian noise that is uncorrelated between spectral bins, yielding a diagonal noise covariance matrix ($\objnoise_i$) for each star. Masked pixels are assigned unit flux and (effectively) infinite noise uncertainties. To account for the fact that the red clump might consist of multiple distinct sub-populations (or one population whose distribution of true spectra is non-Gaussian), we allow for multiple classes to exist in our model, each described by its own Gaussian process. We assume noninformative priors on the variables defining these Gaussian processes, adopting an infinite uniform prior on each mean and a Jeffreys prior on each covariance matrix \citep[p73]{Gelman_etal:2013}. We infer the class membership of each star ($\objclass_i$) assuming they are drawn from categorical distributions with class probabilities ($\classprobs$) drawn, in turn, from a symmetric Dirichlet prior with concentration parameter $\alpha=1$. These priors state our beliefs that, {\it a priori}, no location is preferred for the mean spectra; no scale is preferred for the covariance between two spectral bins; and the stars are as likely to be spread evenly between classes as they are to be concentrated in a single class.
+We assume the spectral data ($\objdata_i$) have been observed with Gaussian noise that is uncorrelated between spectral bins, yielding a diagonal noise covariance matrix ($\objnoise_i$) for each star. Masked pixels are assigned unit flux and (effectively) infinite noise uncertainties. To account for the fact that the red clump might consist of multiple distinct sub-populations (or one population whose distribution of true spectra is non-Gaussian), we allow for multiple classes to exist in our model, each described by its own Gaussian process. We assume noninformative priors on the variables defining these Gaussian processes, adopting an infinite uniform prior on each mean and a Jeffreys prior on each covariance matrix \citep[p73]{Gelman_etal:2013}. We infer the class membership of each star ($\objclass_i$) assuming they are drawn from categorical distributions with class probabilities ($\classprobs$) drawn, in turn, from a symmetric Dirichlet prior with concentration parameter $\alpha=1$. These priors state our beliefs that, {\it a priori}: no location is preferred for the mean spectra; no scale is preferred for the covariance between two spectral bins; and the stars are as likely to be spread evenly between classes as they are to be concentrated in a single class.
 
-The data, model parameters, priors and likelihood fully specify our probabilistic model of the APOGEE red clump dataset. This model is naturally hierarchical, with some parameters describing populations and others individual stars. This hierarchical nature is made clear by plotting the model as a network diagram as in Fig.~\ref{fig:network_diagram}. In this diagram, random variables are shown as single black circles, observables as double black circles and fixed parameters as solid black dots. Links between parameters are indicated by arrows, with the probabilistic relationships defining the links contained within orange boxes. The direction of these arrows indicates the order in which parameters must be defined in order to forward-model the data. Finally, populations of objects are contained within red rectangles or plates, with the indices indicating membership of the population defined in the bottom left of the plate.
+The data, model parameters, priors and likelihood fully specify our probabilistic model of the APOGEE red clump dataset. This model is naturally hierarchical, with some parameters describing populations and others individual stars. This hierarchical nature is made clear in Fig.~\ref{fig:network_diagram}, in which we plot the model as a network diagram. In this diagram, random variables are shown as single black circles, observables as double black circles and fixed parameters as solid black dots. Links between parameters are indicated by arrows, with the probabilistic relationships defining the links contained within orange boxes. The direction of these arrows indicates the order in which parameters must be drawn in order to forward-model the data. Finally, populations of objects are contained within red rectangles or plates, with the indices denoting membership of the population defined in the bottom left of the plate.
 
 \begin{figure}
 	\includegraphics[width=\columnwidth]{bhm_plot.pdf}
@@ -224,7 +261,7 @@ The data, model parameters, priors and likelihood fully specify our probabilisti
     \label{fig:network_diagram}
 \end{figure}
 
-For clarity, we set out our model's parameters, data and constants in Table~\ref{tab:params} and the probability distributions defining each link in the top section of Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each model parameter to be written analytically: these conditional distributions are specified in the bottom section of Table.~\ref{tab:prob_dists}. We are therefore able to use Gibbs sampling~\citep{Geman_and_Geman:1984} to estimate the joint posterior. Gibbs sampling is a special case of Metropolis-Hastings Monte Carlo~\citep{Hastings:1970}. In Gibbs sampling, each iteration consists of updating each parameter in turn by drawing from its conditional distribution based on the current state of the sampler. For example, in our case, we first update the class probabilities, then the class memberships, the true spectra, and finally each class's mean spectrum and covariance matrix. Using the conditional distributions as proposal distributions means the acceptance probability is, by definition, unity, yielding a highly efficient sampler in even high-dimensional settings. The resulting sampler is written in Python and made publicly available on Github.\footnote{\href{https://github.com/sfeeney/ddspectra}{https://github.com/sfeeney/ddspectra}}
+For clarity, we set out our model's parameters, data and constants in Table~\ref{tab:params} and the probability distributions defining each link in the top section of Table.~\ref{tab:prob_dists}. The particular set of probability distributions chosen allow for the conditional distributions of each model parameter to be written analytically: these conditional distributions are specified in the bottom section of Table.~\ref{tab:prob_dists}. We are therefore able to use Gibbs sampling~\citep{Geman_and_Geman:1984} to estimate the joint posterior. Gibbs sampling is a special case of Metropolis-Hastings Monte Carlo~\citep{Hastings:1970} in which a single iteration consists of redrawing each parameter in turn from its conditional distribution based on the current state of the sampler. For example, in our case, we first update the class probabilities, then the class memberships, the true spectra, and finally each class's mean spectrum and covariance matrix. Drawing proposed updates from the conditional distributions means the acceptance probability is, by definition, unity, yielding a highly efficient sampler in even high-dimensional settings. The resulting sampler is written in Python and made publicly available on Github.\footnote{\href{https://github.com/sfeeney/ddspectra}{https://github.com/sfeeney/ddspectra}}
 
 \begin{table}
     \centering
@@ -266,60 +303,21 @@ For clarity, we set out our model's parameters, data and constants in Table~\ref
         $\prob\left(\objclass_i = k|\classprobs\right)$ & $\classprob_k$ & $i^{\rm th}$ object's class membership \\
         $\prob\left(\objdata_i|\objspec_i,\objnoise_i\right)$ & $\normal\left(\objspec_i,\objnoise_i\right)$ & Noisy, masked spectral measurements \\
         \hline
-        $\prob\left(\specmean_k | \speccov_k, \objspec, \objclasses \right)$ & $\normal \left( \frac{1}{n_k} \sum_{\objclass_i = k} \objspec_i, \frac{1}{n_k} \speccov_k \right)$ & Conditional on $k^{\rm th}$ class's mean spectrum \\
-%        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\left| \speccov_k \right|^{-(n_k + \nb + 1)/2} \exp \left( -\frac{1}{2} {\rm tr} \left[ \scalemat_k \speccov_k^{-1} \right] \right)$, where & Conditional on $k^{\rm th}$ class's spectrum covariance \\
-        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\invwish \left(n_k, \scalemat_k \right)$, & Conditional on $k^{\rm th}$ class's spectrum covariance \\
+        $\prob\left(\specmean_k | \speccov_k, \objspec, \objclasses \right)$ & $\normal \left( \frac{1}{n_k} \sum_{\objclass_i = k} \objspec_i, \frac{1}{n_k} \speccov_k \right)$ & Conditional of $k^{\rm th}$ class's mean spectrum \\
+%        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\left| \speccov_k \right|^{-(n_k + \nb + 1)/2} \exp \left( -\frac{1}{2} {\rm tr} \left[ \scalemat_k \speccov_k^{-1} \right] \right)$, where & Conditional of $k^{\rm th}$ class's spectrum covariance \\
+        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\invwish \left(n_k, \scalemat_k \right)$, & Conditional of $k^{\rm th}$ class's spectrum covariance \\
          & where  $\scalemat_k = \sum_{\objclass_i = k} \left( \objspec_i - \specmean_k \right) \otimes \left( \objspec_i - \specmean_k \right)$ & \\
-        $\prob\left(\classprob_k | \objclasses, \alpha\right)$ & $\dirichlet\left(\alphas\right)$, where $a_k = \alpha + n_k$ & Conditional on class probabilities \\
-        $\prob \left( \objspec_i | \specmean_{k=\objclass_i}, \speccov_{k=\objclass_i}, \objdata_i, \objnoise_i \right)$ & $\normal \left( \wfmean_i, \wfcov_i \right)$, & Conditional on $i^{\rm th}$ object's spectrum \\
+        $\prob\left(\classprob_k | \objclasses, \alpha\right)$ & $\dirichlet\left(\alphas\right)$, where $a_k = \alpha + n_k$ & Conditional of class probabilities \\
+        $\prob \left( \objspec_i | \specmean_{k=\objclass_i}, \speccov_{k=\objclass_i}, \objdata_i, \objnoise_i \right)$ & $\normal \left( \wfmean_i, \wfcov_i \right)$, & Conditional of $i^{\rm th}$ object's spectrum \\
          & where $\wfcov_i = \left( \speccov_{k=\objclass_i}^{-1} + \objnoise_i^{-1} \right)^{-1}$ &  \\
          & and $\wfmean_i = \wfcov_i \left( \speccov_{k=\objclass_i}^{-1} \specmean_{k=\objclass_i} + \objnoise_i^{-1} \objdata_i \right)$ &  \\
-        $\prob \left( \objclass_i = k | \specmean, \speccov, \classprobs \right)$ & $ \frac{ \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k} + \ln \left| \speccov_k \right| \right] + \ln \classprob_k \right) }{ \sum_{k^\prime} \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k^\prime} + \ln \left| \speccov_{k^\prime} \right| \right] + \ln \classprob_{k^\prime} \right) }$, & Conditional on $i^{\rm th}$ object's class membership \\
+        $\prob \left( \objclass_i = k | \specmean, \speccov, \classprobs \right)$ & $ \frac{ \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k} + \ln \left| \speccov_k \right| \right] + \ln \classprob_k \right) }{ \sum_{k^\prime} \exp \left( -\frac{1}{2} \left[ \chi^2_{i,k^\prime} + \ln \left| \speccov_{k^\prime} \right| \right] + \ln \classprob_{k^\prime} \right) }$, & Conditional of $i^{\rm th}$ object's class membership \\
          & where $\chi^2_{i,k} = \left( \objspec_i - \specmean_k \right)^T \speccov_k^{-1} \left( \objspec_i - \specmean_k \right) $ &  \\
         \hline
     \end{tabular}
 \end{table*}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-We take the 29502 red clump stars identified in the APOGEE dataset with their $\nb = 8575$ spectral bins over the range 15100.80-16999.81 \AA. An inversion of the resulting $\nb \times \nb$ covariance matrices would be too slow to permit inference, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances in consultation with Jon Holtzman and Matthew Shetrone \citep{Holtzman2015, Shetrone2015}. Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres tabulated in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. %These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
-
-\begin{table}
-    \centering
-    \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4.}
-    \label{tab:window_centres}
-    \begin{tabular}{lc}
-        \hline
-        element & window centre / \AA \\
-        \hline
-        Al & 16723.500 \\
-        C & 15582.101 \\
-        Ca & 16155.176 \\
-        Ce & 15789.063 \\
-        Co & 16158.700 \\
-        Cr & 15684.264 \\
-        Cu & 16010.023 \\
-        Fe & 15495.100 \\
-        Ge & 16764.238 \\
-        K & 15167.081 \\
-        Mg & 15745.000 \\
-        Mn & 15221.867 \\
-        N & 15321.871 \\
-        Na & 16378.276 \\
-        Nd & 15372.342 \\
-        Ni & 15559.517 \\
-        O & 15760.300 \\
-        P & 15715.930 \\
-        Rb & 15293.534 \\
-        S & 15482.319 \\
-        Si & 15964.600 \\
-        Ti & 15339.241 \\
-        V & 15929.052 \\
-        Y & 15624.142 \\
-        Yb & 16502.973 \\
-        \hline
-    \end{tabular}
-\end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
