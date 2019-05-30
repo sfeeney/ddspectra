@@ -144,8 +144,8 @@ datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
-alt_win = True
-win_wid = 2.5
+alt_win = False
+win_wid = 1.5
 eval_thresh = 1.0e-4
 n_gp_reals = 50
 recovery_test = False
@@ -290,6 +290,11 @@ while True:
 								 datafile.format(n_file))
 	else:
 		break
+
+# calculate average noise  std dev of unmasked spectra
+mask_weight = (np.sqrt(var_noise) < 1000.0).astype('float')
+mean_std_noise = np.sqrt(np.sum(var_noise * mask_weight, axis=0) / \
+						 np.sum(mask_weight, axis=0))
 
 # optionally mask a section of one star's spectrum 
 # artificially to test method. store complete input spectrum
@@ -879,8 +884,10 @@ for tgt in tgts:
 					ax = axes_sd[k]
 				else:
 					ax = axes_sd[i, k]
-				x_bar = np.rint(0.5 * (wl_begin[tgt_windows[i]] + \
-										wl_end[tgt_windows[i]]))
+				#x_bar = np.rint(0.5 * (wl_begin[tgt_windows[i]] + \
+				#						wl_end[tgt_windows[i]]))
+				x_bar = 0.5 * (wl_begin[tgt_windows[i]] + \
+							   wl_end[tgt_windows[i]])
 				x = np.linspace(wl_begin[tgt_windows[i]], \
 								wl_end[tgt_windows[i]], \
 								len(cond_stddev[j])) - x_bar
@@ -888,13 +895,26 @@ for tgt in tgts:
 				ax.plot(x, full_stddev, color='k')
 				for j in range(len(cond_stddev)):
 					ax.plot(x, cond_stddev[j], color=cols[j])
-				ax.set_xlabel(r'$\lambda-' + '{:5d}'.format(int(x_bar)) + \
+				# also show average (unmasked) noise std dev in region
+				if tgt_windows[i] == 0:
+					mean_std_noise_w = \
+						mean_std_noise[0: wendices[tgt_windows[i]]]
+				else:
+					mean_std_noise_w = \
+						mean_std_noise[wendices[tgt_windows[i] - 1]: \
+									   wendices[tgt_windows[i]]]
+				ax.plot(x, mean_std_noise_w, color='grey', ls='--')
+
+				#ax.set_xlabel(r'$\lambda-' + '{:5d}'.format(int(x_bar)) + \
+				#			  r'\,[{\rm Angstroms}]$')
+				ax.set_xlabel(r'$\lambda-' + '{:8.2f}'.format(x_bar) + \
 							  r'\,[{\rm Angstroms}]$')
 				ax.set_ylabel(r'$\sigma$')
 				ax.set_xlim(wl_begin[tgt_windows[i]] - x_bar, \
 							wl_end[tgt_windows[i]] - x_bar)
 				ax.set_ylim(0.99 * np.min(cond_stddev), \
-							1.01 * np.max(full_stddev))
+							1.01 * max(np.max(full_stddev), \
+									   np.max(mean_std_noise_w)))
 				#ax.set_yscale('log', nonposy='clip')
 				ax.set_title(tgt)
 
