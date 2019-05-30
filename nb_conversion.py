@@ -13,6 +13,8 @@ if 'DISPLAY' not in os.environ.keys():
 import matplotlib.pyplot as mp
 import matplotlib.cm as mpcm
 import matplotlib.axes as mpa
+import matplotlib.colors as mpc
+import matplotlib.colorbar as mpcb
 #import corner as co
 
 def symmetrize(m):
@@ -182,8 +184,8 @@ diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
-alt_win = True
-win_wid = 2.5
+alt_win = False
+win_wid = 1.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-4
@@ -1230,6 +1232,20 @@ if rank == 0:
 		else:
 			axes[-1].set_xlabel(r'$\lambda-15100\,[{\rm Angstroms}]$', fontsize=18)
 			mp.setp(axes[-1].get_xticklabels(), rotation=45)
+
+		# add colorbars
+		trunc_str = 'trunc({n},{a:.2f},{b:.2f})'.format(n=cm, a=0.1, b=0.9)
+		new_cm = mpc.LinearSegmentedColormap.from_list(trunc_str, \
+													   cm(np.linspace(0.1, 0.9, n_gp_reals)))
+		norm=mpc.Normalize(vmin=1, vmax=n_gp_reals)
+		fig.subplots_adjust(right=0.8)
+		for k in range(n_classes):
+			ax_pos = axes[k].get_position()
+			cbar_ax = fig.add_axes([0.84, ax_pos.y0, 0.02, \
+									ax_pos.y1 - ax_pos.y0])
+			cbar = mpcb.ColorbarBase(cbar_ax, cmap=new_cm, norm=norm, \
+									 alpha=0.5)
+			cbar.set_label('realization number', fontsize=18)
 		mp.savefig(io_base + 'gp_realizations.pdf', bbox_inches='tight')
 		mp.close()
 
@@ -1301,11 +1317,25 @@ if rank == 0:
 		axes[k, 1].set_title('Mean Posterior (rank ' + \
 							 '{:d})'.format(n_eval_sig[k]))
 		axes[k, 2].set_title(r'Residual ($\times 500$)')
+		x_text = []
+		for i in range(n_windows):
+			x_text.append(n_in_bin[i] / 2.0)
+			if i > 0:
+				x_text[-1] += wendices[i - 1]
 		for i in range(len(axes[k, :])):
+			axes[k, i].set_xticks(x_text)
+			axes[k, i].set_xticklabels(wlabels, rotation=90, fontsize=10)
+			axes[k, i].set_yticks(x_text)
+			axes[k, i].set_yticklabels(wlabels, fontsize=10)
 			axes[k, i].tick_params(axis='both', which='both', \
 								   bottom='off', top='off', \
-								   labeltop='off', right='off', \
-								   left='off', labelleft='off')
+								   right='off', left='off', \
+								   labeltop='off', labelbottom='on')
+			axes[k, i].autoscale(False)
+			for j in range(n_windows):
+				axes[k, i].axvline(wendices[j], color='gray', lw=0.5)
+				axes[k, i].axhline(wendices[j], color='gray', lw=0.5)
+		
 
 		# plot comparison between PCA and MAP covariances
 		if precompress:
