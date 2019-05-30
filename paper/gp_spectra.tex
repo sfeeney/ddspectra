@@ -53,6 +53,7 @@
 \newcommand{\scalemat}{{\bm \Gamma}}
 \newcommand{\wfmean}{{\bm w}}
 \newcommand{\wfcov}{{\bm W}}
+\newcommand{\condcov}{{\bm C}}
 
 %Editing commands
 \newcommand{\bdw}[1]{\textbf{\textcolor{magenta}{BDW: #1}}}
@@ -212,38 +213,39 @@ The data have been downloaded from the APOGEE database and are radial velocity s
     \centering
     \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4.}
     \label{tab:window_centres}
-    \begin{tabular}{lc}
+    \begin{tabular}{lcl}
         \hline
-        element & window centre / \AA \\
+        element & window centre / \AA & elemental family \\
         \hline
-        Al & 16723.500 \\
-        C & 15582.101 \\
-        Ca & 16155.176 \\
-        Ce & 15789.063 \\
-        Co & 16158.700 \\
-        Cr & 15684.264 \\
-        Cu & 16010.023 \\
-        Fe & 15495.100 \\
-        Ge & 16764.238 \\
-        K & 15167.081 \\
-        Mg & 15745.000 \\
-        Mn & 15221.867 \\
-        N & 15321.871 \\
-        Na & 16378.276 \\
-        Nd & 15372.342 \\
-        Ni & 15559.517 \\
-        O & 15760.300 \\
-        P & 15715.930 \\
-        Rb & 15293.534 \\
-        S & 15482.319 \\
-        Si & 15964.600 \\
-        Ti & 15339.241 \\
-        V & 15929.052 \\
-        Y & 15624.142 \\
-        Yb & 16502.973 \\
+        Al & 16723.500 & light odd-Z \\
+        C & 15582.101 & light \\
+        Ca & 16155.176 & alpha \\
+        Ce & 15789.063 & neutron capture r-process \\
+        Co & 16158.700 & iron peak \\
+        Cr & 15684.264 & iron peak \\
+        Cu & 16010.023 & iron peak \\
+        Fe & 15495.100 & iron peak \\
+        Ge & 16764.238 & neutron capture s-process \\
+        K & 15167.081 & light odd-Z \\
+        Mg & 15745.000 & alpha \\
+        Mn & 15221.867 & iron peak \\
+        N & 15321.871 & light \\
+        Na & 16378.276 & light odd-Z \\
+        Nd & 15372.342 & neutron capture r-process \\
+        Ni & 15559.517 & iron peak \\
+        O & 15760.300 & alpha \\
+        P & 15715.930 & light odd-Z \\
+        Rb & 15293.534 & neutron capture s-process \\
+        S & 15482.319 & alpha \\
+        Si & 15964.600 & alpha \\
+        Ti & 15339.241 & alpha \\
+        V & 15929.052 & iron peak \\
+        Y & 15624.142 & neutron capture s-process \\
+        Yb & 16502.973 & neutron capture s-process \\
         \hline
     \end{tabular}
 \end{table}
+
 
 \section{Methods}
 
@@ -374,23 +376,53 @@ We demonstrate our inference of the true spectra of individual stars in Figure~\
 
 Figure~\ref{fig:inpainting_denoising_examples} clearly demonstrates our ability to inpaint masked regions of spectra and denoise low signal-to-noise spectra. The inpainting results for the Cerium window are particularly encouraging. We are able to make precise (and very different) estimates of these two stars' spectra in the region of the Cerium line, permitting, in principle, measurements of their Cerium abundances where none was previously possible. The same is true for, for example, for the Aluminium lines of the third, fourth and fifth stars, along with the Oxygen and Germanium lines of the second, fifth and sixth stars. While we are also able to successfully inpaint the Neodymium windows for the third and fourth stars, our model infers very weak line profiles in both cases, making an abundance measurement challenging. Our ability to denoise the spectra is obvious for all stars considered: the uncertainties on the true spectra are in all cases smaller than the measurement uncertainty, permitting higher-precision abundance determination than previously possible. The Sodium line of the last two stars is a particularly good example of the potential for method to denoise spectra.
 
-The results presented to this point assume that the APOGEE red clump stars belong to a single class (and their true spectra are therefore realizations of a single Gaussian process). We have experimented with allowing multiple classes, initializing the sampler with random class memberships; however, we find little impact on our final results. The sampler finds slight differences between the classes' mean spectra ($\specmean_k$) and covariances ($\speccov_k$), but these are driven by the initial randomized class memberships: very few stars leave one class for another, and those that do typically do so only once, in the sampler's first iteration. This is because the probability distribution used for drawing a star's class membership (last row of Table~\ref{tab:prob_dists}) drops exponentially with the square of the Mahalanobis distance: the number of ``sigma'' the star's spectrum is from each class's mean spectrum. In very high dimensions, for almost all stars the distance to a new class is typically much larger than the distance to the current class, and the probability of transitioning to a new class is essentially zero. As such, we believe the class assignments are more-or-less random and hence uninteresting. Exploring these high-dimensional clustering issues is left to future work. 
+The results presented to this point assume that the APOGEE red clump stars belong to a single class (and their true spectra are therefore realizations of a single Gaussian process). We have experimented with allowing multiple classes, initializing the sampler with random class memberships; however, we find little impact on our final results. The sampler finds slight differences between the classes' mean spectra ($\specmean_k$) and covariances ($\speccov_k$), but these are driven by the initial randomized class memberships: very few stars leave one class for another during the sampling process, and those that do typically do so only once, in the sampler's first iteration. This is because the probability distribution used for drawing a star's class membership (Table~\ref{tab:prob_dists}, last row) drops exponentially with the squared distance between the star's true spectrum and each class's mean spectrum\footnote{Specifically, the Mahalanobis distance, or number of ``sigma'' the star's spectrum is from the class's mean.}. In very high dimensions, for almost all stars the distance to a new class is typically much larger than the distance to the current class, and the probability of transitioning to a new class is essentially zero. As such, we believe the class assignments are random and hence uninteresting. Exploring these high-dimensional clustering issues is left to future work. 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_save_spectra.pdf}
-    \caption{The measured and inferred spectra of six stars, all with low SNR, selected to demonstrate our ability to both inpaint and denoise the data. From top to bottom, the SNR of the stars are 49, 63, 75, 41, 21 and 23, respectively. The 68\% uncertainties on the observed spectra and inferred ``true'' spectra are shown as the pink and grey shaded regions, respectively (note the masked regions in the APOGEE spectra where the measurement uncertainties flare out to infinity). There is excellent agreement between the model and data. The spectral regions shown are centred on the 25 elemental lines from Table 1 with a bandwidth of $\pm$ 1.5 \AA. \bf{The first two spectra have masked Cerium lines centred on 15789 \AA\, where the model infers the line profiles which could in principle be used to return Cerium abundances for these stars. The middle two stars have the Neodymium line centred on 15372 \AA\ masked; here (and across all SNR examined in this Figure), however, the model infers very weak line profiles, rendering recovery of this abundance unlikely. All other lines inferred by the model are essentially denoised versions of the spectra from which higher precision abundances can be in principle determined compared to using the originally observed spectra itself.} }
+    \caption{The measured and inferred spectra of six stars, all with low SNR (top to bottom: 49, 63, 75, 41, 21 and 23), selected to demonstrate our ability to both inpaint and denoise the data. The spectral regions shown are 3 \AA\ windows centred on the 25 elemental lines from Table~\ref{tab:window_centres}. The 68\% uncertainties on the observed spectra and inferred ``true'' spectra are shown as the pink and grey shaded regions, respectively (note the masked regions in the APOGEE spectra where the measurement uncertainties flare out to infinity). There is excellent agreement between the model and data. The first two spectra have completely masked Cerium lines (15789 \AA), and the inferred spectra clearly permit the measurement of Cerium abundances for these stars. The middle two stars' Neodymium (15372 \AA) lines are completely masked. Though the model again inpaints these regions successfully, the resulting line profiles are very weak, rendering recovery of this abundance unlikely. All other lines inferred by the model are denoised compared to the data, permitting the estimation of higher precision abundances.}
     \label{fig:inpainting_denoising_examples}
 \end{figure*}
 
 \subsection{The Measured Information Content in the Spectra}
 
+We now turn to quantifying the information contained in each elemental window, with the aim of determining the regions of spectra most informative about particular elements of interest. We start with the mean-posterior covariance within each window, $\bar{\speccov}_{XX}$, as this describes the fundamental uncertainty with which we can predict the true spectrum of a new red clump star having observed our APOGEE sample. $X$ here denotes the spectral bins defining the elemental window of interest. We summarize this covariance matrix for six elemental windows ($X=\{{\rm C, Na, Mg, Fe, Ce, Ge}\}$: one from each elemental family) by plotting the root-mean-square (RMS) uncertainty,
+\begin{equation}
+\bm{\sigma}_X = \sqrt{{\rm diag} \left[\bar{\speccov}_{XX}\right]},
+\end{equation}
+in black in Figure~\ref{fig:single_element_errs}. For context, we overlay the typical measurement uncertainty\footnote{The square root of the average noise variance in each spectral bin, where the average is taken over stars in whose spectra the bin is not masked.} as a grey dashed line. This immediately demonstrates that our model of the APOGEE spectra allows us to make sub-noise predictions for some portions of a new star's spectrum without taking further data.
 
 
-predictivity
-Here we measure information gain. Given one element, how much information do we gain by measuring one more element, and then another. Importantly, we have the caveat that this is for elements measured from these particular spectral regions, could change as a function of some lines. 
-Demonstrate for each family
-Metric is this: 
-What we find is essentially every single element adds information. Flat line would indicate no additional information, falls of exponentially at different rates for all the elements. Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on. 
+\begin{figure*}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_na_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_mg_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_conditional_stddevs.pdf}
+	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_conditional_stddevs.pdf}
+    \caption{Root-mean-square uncertainties on the spectra within our illustrative set of elemental windows, centred on features due to C, Na, Mg, Fe, Ce and Ge, respectively. The black line shows the uncertainty on the predicted spectrum of a new APOGEE star having not observed any portion of its spectrum; the grey dashed line indicates the typical uncertainties due to APOGEE noise. The remaining lines show how the uncertainty decreases after having perfectly observed the $1 \le n \le 24$ most informative elemental windows of the new star's spectrum, coloured from purple (most informative) to yellow (least informative). The order in which elements are added is plotted in Figure~\ref{fig:single_element_information}. Note that the impact of adding observations decreases as the information gain curves of Figure~\ref{fig:single_element_information} become less steep.}
+    \label{fig:single_element_errs}
+\end{figure*}
+
+
+To determine which windows are the most informative, imagine observing one window of this new star's spectrum (corresponding to, say, element $Y$) {\it without measurement error}. The long-range correlations present in the inferred covariance matrix (i.e., the fact that elemental abundances are determined by a finite number of physical processes) imply that by doing so we should better constrain the elemental window of interest. To quantify the information gained about element X by (perfectly) observing element Y, we calculate the conditional covariance matrix
+\begin{equation}
+\condcov_{XX|Y} = \bar{\speccov}_{XX} - \bar{\speccov}_{XY} \bar{\speccov}_{YY}^{-1} \bar{\speccov}_{YX}.
+\end{equation}
+The conditional covariance contains our full prediction for the uncertainty on window $X$ having observed window $Y$, but we must compress it in order to construct a useful metric for quantifying information gain. We do so by taking its determinant which, for covariance matrices, can be thought of as calculating the volume of the error ellipse on the quantities of interest. We define our information gain metric as
+\begin{equation}
+I = \log \frac{ \left| \condcov_{XX|Y} \right| }{ \left| \speccov_{XX} \right| } \le 0:
+\end{equation}
+the (logarithm of the) fractional reduction in uncertainty on the true spectrum in window $X$ obtained by observing window $Y$. Observing a new window can only add information, contracting the covariance matrix (or, in the worst-case scenario, leaving it unchanged), and thus $I$ cannot be greater than zero.
+
+With this metric in hand, we can take each elemental window in turn and determine the information gained by observing each other window. The window $Y^1$ with the most negative $I$ is the most informative about our target window $X$; indeed, as our metric $I$ is symmetric, these two elements are the most informative about each other. We then repeat this process, conditioning on $Y^1$ {\it and} each other window in order to find the second most informative window, $Y^2$, continuing to add windows until we find the optimal order in which to build up information on the element of interest. We denote the list of the $n$ most informative elements $\bm{Y}^n = \{ Y^1, Y^2, \ldots, Y^n \}$; the covariance in window $X$ conditioned on these elements is $\condcov_{XX|\bm{Y}^n}$.
+
+We plot the results of this process for the six illustrative elements in Figures~\ref{fig:single_element_errs} and~\ref{fig:single_element_information}. In Figure~\ref{fig:single_element_errs} we demonstrate how the RMS uncertainty within each elemental window shrinks as we condition on more and more information, now taking the RMS uncertainty to be
+\begin{equation}
+\bm{\sigma}_X = \sqrt{{\rm diag} \left[\condcov_{XX|\bm{Y}^n}\right]}.
+\end{equation}
+We plot the RMS uncertainties after conditioning on the $1 \le n \le \nb-1$ most informative windows as a series of solid curves, coloured from purple to yellow. We find that observing the most informative window, $Y^1$, significantly improves the uncertainty on the spectral window of interest. Conditioning on additional windows continues to add information, albeit with diminishing returns. After observing all other windows, the RMS uncertainty at the centre of the window of interest (i.e., directly over the elemental absorption line) has been reduced by at least a factor of two for all elements bar carbon; for germanium, this factor is closer to six.
+
 
 \begin{figure*}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_inf_gain.pdf}
@@ -412,20 +444,23 @@ What we find is essentially every single element adds information. Flat line wou
 %two things - not looking at single elemental abundances because there might be other stuff in those windows, we are not using the same basis as abundances. Even if we were looking at abundances, not perfectly predictive. 
 %intrinsic variance is coming out in this figure. 
 
-\begin{figure*}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_c_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_na_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_mg_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_fe_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ce_conditional_stddevs.pdf}
-	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_ge_conditional_stddevs.pdf}
-    \caption{These six sub-panels correspond to the same element windows as shown in Figure 6 of C, Na, Mg, Fe, Ce and Ge, as indicated in the top of each panel. In this Figure, the x-axis is centered on the wavelength of each primary element and the y-axis shows the conditional standard deviations for our  given observations of other elemental windows, added in the order set out in the corresponding panel of Figure~\ref{fig:single_element_information}. The black line shows the uncertainty on the predicted spectrum without observations of other windows. The remaining 24 lines then correspond to the element windows ordered on the x-axis of the corresponding sub-panels of Figure~\ref{fig:single_element_information}, from the most to least informative element window. This corresponds to the highest, in purple, to lowest, in yellow uncertainties on the predicted spectrum as each additional element is added. Note the uncertainties decrease less as the element-information gain relation becomes less steep in Figure  Figure~\ref{fig:single_element_information}. \textcolor{blue}{Now centered on the window center, with the average noise (of unmasked spectra) overlaid as a grey dashed line.}}
-    \label{fig:single_element_errs}
-\end{figure*}
-%for each pixel shows the variance
-%mean covariance matrix 
-% in the order of figure 6 and coloured from black to yellow. All 24 are there. 
-%centered on the nearest integer wavelength to the line center 
+
+Figure~\ref{fig:single_element_information} shows, for these exemplars, which element adds the most information. and then the next most informative, etc.. these tell us how the volume has shrunk, and therefore how the uncertainty on a particular portion of spectrum has shrunk. comments on elemental families.
+What we find is essentially every single element adds information. Flat line would indicate no additional information, falls off exponentially at different rates for all the elements. Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on. Elements coloured by family. Curve coloured in same way as Fig.~\ref{fig:single_element_errs}.
+
+Importantly, we have the caveat that this is for elements measured from these particular spectral regions, could change as a function of some lines.
+
+Figure~\ref{fig:all_element_information} we show full results: how much each window informs each other. as the information gain metric is symmetric the plotted matrices are too, but we retain the full matrix for prettiness. we present this information in two ways. in the first, we group elements by their families, sorting within families by increasing atomic number. two things to note. first is yellow peaks, which show particularly informative elemental pairs. the most informative pairs are ni-mn, fe-ti, mg-si, but overall the iron group elements predict each other well, as do the alpha elements (and, indeed, each other).
+
+second thing to note is patterns of predictivity common to multiple elements: for example, the alpha-element and iron-group rows look similar. we make a first pass at sorting using this structure in the right hand panel. we quantify the similarity between two rows in the matrix using
+\begin{equation}
+d_{ij} = \sum_k |C_{ik} - C_{jk}|.
+\end{equation}
+using a Euclidean distance metric gives similar results. To sort the elements by similarity we use a simple greedy algorithm, approximating the global optimum through a series of locally optimal choices. We pick a first element and select the most similar element by finding the smallest $d$. We then take the second element as the comparator, calculating distances to all other remaining elements, and repeat until no elements remain. This approach is not guaranteed to find the global optimum, and indeed depends on the first element chosen. We therefore repeat the process with each element as the starting point and choose the first element whose sorted matrix minimizes the total distance between rows (define minimum distance, define sum over rows).
+
+The results, shown in right hand panel, show similar conclusions to the family-grouped matrix. The iron-group elements are most similar, then the alpha elements. There is something of a clean break around rubidium and nitrogen beyond which the information gains are drop noticeably (though note that aluminium and copper are moderately informative about titanium, silicon, magnesium and cobalt: this may well be due to the sub-optimality of the greedy algorithm).
+
+We repeat all of the above using broader 5-angstrom wide windows and present a version of Figure~\ref{fig:all_element_information} for these windows in Figure~\ref{fig:all_element_information_wide}. there are numerous things to note. first, the scale extends to larger negative values of information gain: these windows are broader, contain more information and are therefore more predictive. the optimal first element is now neodymium, not nickel, but the structure is still similar: the most informative elements are the iron-peak and alpha group, and these elements also have the most similar information gains and thus cluster in the plot. there is, however, more structure in the matrix (it's less blocky), thanks to the broader windows. this increases the chance of contamination: the yttrium entry being an excellent case in point. for these windows Y-Ni is the most informative pair: this is because the broad window around yttrium contains an iron line.
 
 \begin{figure*}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_win_wid_1p5_sorted_inf_gains_fam_z.pdf}
