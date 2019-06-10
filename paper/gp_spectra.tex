@@ -31,6 +31,7 @@
 \usepackage{amsmath}	% Advanced maths commands
 \usepackage{amssymb}	% Extra maths symbols
 \usepackage{bm}
+\usepackage[dvipsnames]{xcolor}
 
 \newcommand{\nb}{n_{\rm b}}
 \newcommand{\nc}{n_{\rm c}}
@@ -112,7 +113,7 @@ keyword1 -- keyword2 -- keyword3
 
 There is now a vast set of spectroscopic data and corresponding velocity, stellar parameter, individual abundance and age measurements, from surveys like APOGEE \citep{Majewski2017}, GALAH \citep{deSilva2015}, Gaia-ESO \citep{Gilmore2012}, RAVE \citep{Steinmetz2006}, SEGUE \citep{Yanny2009} and LAMOST \citep{Newberg2012}. An increasing number of large spectroscopic surveys will be starting observations in the coming years such as Sloan V \citep{Kollmeier2017}, WEAVE \citep{Bonifacio2016}, 4MOST \citep{deJong2016}, PFS \citep{PFS2016}, MOONS \citep{C2014} and Gaia RVS \citep{Gaia2016}. Large ($> 10^5$ star) surveys like GALAH and APOGEE have enabled tremendous leaps forward already in our empirical characterization of the Milky Way and an improved understanding of its assembly. However, both of these surveys rely on expensive observations, integrating to high signal to noise (SNR) of up to SNR $>$ 100 per pixel. Such high SNR observations have been regarded as critical in the pursuit of precision abundances and to provide optimal chemical differentiation across the Galaxy. The abundances can be used to trace the chemical evolution of the Milky Way, which has presumably proceeded in a growing disk via continued enrichment of populations over time. The data measurements place strong constraints on the chemical evolution models employed to understand this formation and evolution \citep[e.g.][]{Clarke2019,Minchev2013,Minchev2014}. The disk is believed to be comprised of numerous individual birth-sites where groups of stars were born. Therefore, a large number of individual elements measured for many stars ($> 10^6$) may also, in principle,  allow the reconstruction of stars into their individual birth sites via tracing their unique chemical signatures \citep[e.g.][]{BH2010}. 
 
-The large data volumes now in hand have led to the development of new approaches to derive measurements from spectral data. These include data-driven modeling approaches, for example The Cannon \citep{Ness2015} and full spectral fitting using physical models as implemented in The Payne \citep{Ting2018}. These approaches show that abundances can be measured at higher precision than previously, enabling observations at 1/4 to 1/9th of the observing time. Specifically, abundance precisions on the order of 0.05-0.1 dex can be achieved at SNR $<$ 40 per pixel \citep{Ness2018, Ting2018, Ho2017b}. It has also been demonstrated that an ensemble of individual abundances can also be derived at medium (R=11,000) and low (R=1800) resolution, by full spectral modeling \citep[e.g.][and Wheeler et al., in prep]{Casey2016, Ting2017}. Physically, this is well justified: abundances can be measured from their impact on the entire spectral range as legitimately as from the individual element lines themselves  \citep[e.g.][]{Ting2018}. This methodological advance in particular is highly relevant for the Gaia RVS data, of R=11,000 spectra for 7 million objects and the large ensemble of low-resolution data being observed in future surveys. In general, we are now in an era of tremendous opportunity to develop new avenues of stellar modeling and particularly with respect to using the ensemble to inform the modeling of individual objects. 
+The large data volumes now in hand have led to the development of new approaches to derive measurements from spectral data. These include data-driven modeling approaches, for example The Cannon \citep{Ness2015} and full spectral fitting using physical models as implemented in The Payne \citep{Ting2018}. These approaches show that abundances can be measured at higher precision than previously, enabling observations at 1/4 to 1/9th of the observing time. Specifically, abundance precisions on the order of 0.05-0.1 dex can be achieved at SNR $<$ 40 per pixel \citep{Ness2018,Ting2018,Ho2017b}. It has also been demonstrated that an ensemble of individual abundances can also be derived at medium (R=11,000) and low (R=1800) resolution, by full spectral modeling \citep[e.g.][and Wheeler et al., in prep]{Casey2016, Ting2017}. Physically, this is well justified: abundances can be measured from their impact on the entire spectral range as legitimately as from the individual element lines themselves  \citep[e.g.][]{Ting2018}. This methodological advance in particular is highly relevant for the Gaia RVS data, of R=11,000 spectra for 7 million objects and the large ensemble of low-resolution data being observed in future surveys. In general, we are now in an era of tremendous opportunity to develop new avenues of stellar modeling and particularly with respect to using the ensemble to inform the modeling of individual objects. 
 
 
 %This has in large part been the motivation for surveys like Sloan V's Galactic Genesys program using observations of stars at R=22,500, using the same instrument as APOGEE. Sloan V is obtaining an order of magnitude more stars within its Galactic Genesys  ($>$ 10$^6$) via more efficient sky sampling and by relaxing the SNR limit to $\sim$ 40 per pixel. Even such lower SNR spectra can yield  abundance precisions on the order of 0.05-0.1 dex given current approaches \citep{Ness2015, Ting2015}. Yet, what are the additional opportunities to use the ensemble of spectra to inform individual objects in the modeling of stellar spectra? Additionally, GAIA will deliver medium resolution spectra (R=11,000) for 7 million objects.   The coming decade will see increasing numbers of observations of stars by many orders of magnitude sets. We have the corresponding tremendous opportunity for data-driven modeling of these stars across our Galaxy. 
@@ -218,40 +219,41 @@ For our modeling we use the APOGEE red clump spectra from DR14 \citep{Majewski20
 %These make an ideal test case for our modeling being restricted in their range of effective temperature and surface gravity so we can assume that our overall measurements are driven by abundance variations and not systematic variations across stellar parameters. The metallicity range of the red clump stars span --1.0 $<$ [Fe/H] $<$ 0.5 and they are distributed from R$_{GAL}$ = 4 to 20 kpc. 
 
 The data have been downloaded from the APOGEE database and are radial velocity shifted back to the rest frame and continuum-normalised, with a slight SNR dependence on the continuum normalisation that we discover with our Gaussian Process modeling. The spectra cover the range 15100.80-16999.81 \AA, and comprise $\nb = 8575$ spectral bins. Repeated inversion of the $\nb \times \nb$ covariance matrices required for inference would be prohibitively slow, and we thus restrict our analysis to a set of spectral windows centred on lines confidently assigned to individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances in consultation with Jon Holtzman and Matthew Shetrone \citep{Holtzman2015, Shetrone2015}. Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres specified in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. %These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
+\smf{The elements responsible for these absorption lines can be grouped into six nucleosynthetic families: iron-peak, alpha-process, r-process, s-process, light and light with odd atomic number. We expect~\cite{something} that common production mechanisms should correlate elemental abundances and thence spectral windows. To highlight correlations between nucleosynthetic family members, we colour elements by their families in relevant figures throughout the paper, setting out these colours in Table~\ref{tab:window_centres}.}
 
 \begin{table}
     \centering
-    \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4. \mkn{add a description to the text of the different families and what color they appear in}.}
+    \caption{The list of the 25 elements that we select for our spectral modeling and their corresponding central wavelength (in a vacuum) corresponding to Figure 4.}
     \label{tab:window_centres}
     \begin{tabular}{lcl}
         \hline
         element & window centre / \AA & elemental family \\
         \hline
-        Al & 16723.500 & light odd-Z \\
-        C & 15582.101 & light \\
-        Ca & 16155.176 & alpha \\
-        Ce & 15789.063 & neutron capture r-process \\
-        Co & 16158.700 & iron peak \\
-        Cr & 15684.264 & iron peak \\
-        Cu & 16010.023 & iron peak \\
-        Fe & 15495.100 & iron peak \\
-        Ge & 16764.238 & neutron capture s-process \\
-        K & 15167.081 & light odd-Z \\
-        Mg & 15745.000 & alpha \\
-        Mn & 15221.867 & iron peak \\
-        N & 15321.871 & light \\
-        Na & 16378.276 & light odd-Z \\
-        Nd & 15372.342 & neutron capture r-process \\
-        Ni & 15559.517 & iron peak \\
-        O & 15760.300 & alpha \\
-        P & 15715.930 & light odd-Z \\
-        Rb & 15293.534 & neutron capture s-process \\
-        S & 15482.319 & alpha \\
-        Si & 15964.600 & alpha \\
-        Ti & 15339.241 & alpha \\
-        V & 15929.052 & iron peak \\
-        Y & 15624.142 & neutron capture s-process \\
-        Yb & 16502.973 & neutron capture s-process \\
+        Al & 16723.500 & \textcolor{OliveGreen}{light odd-Z (green)} \\
+        C & 15582.101 & \textcolor{NavyBlue}{light (blue)} \\
+        Ca & 16155.176 & \textcolor{red}{alpha (red)} \\
+        Ce & 15789.063 & \textcolor{Plum}{r-process (purple)} \\
+        Co & 16158.700 & \textcolor{orange}{iron peak (orange)} \\
+        Cr & 15684.264 & \textcolor{orange}{iron peak (orange)} \\
+        Cu & 16010.023 & \textcolor{orange}{iron peak (orange)} \\
+        Fe & 15495.100 & \textcolor{orange}{iron peak (orange)} \\
+        Ge & 16764.238 & \textcolor{Sepia}{s-process (brown)} \\
+        K & 15167.081 & \textcolor{OliveGreen}{light odd-Z (green)} \\
+        Mg & 15745.000 & \textcolor{red}{alpha (red)} \\
+        Mn & 15221.867 & \textcolor{orange}{iron peak (orange)} \\
+        N & 15321.871 & \textcolor{NavyBlue}{light (blue)} \\
+        Na & 16378.276 & \textcolor{OliveGreen}{light odd-Z (green)} \\
+        Nd & 15372.342 & \textcolor{Plum}{r-process (purple)} \\
+        Ni & 15559.517 & \textcolor{orange}{iron peak (orange)} \\
+        O & 15760.300 & \textcolor{red}{alpha (red)} \\
+        P & 15715.930 & \textcolor{OliveGreen}{light odd-Z (green)} \\
+        Rb & 15293.534 & \textcolor{Sepia}{s-process (brown)} \\
+        S & 15482.319 & \textcolor{red}{alpha (red)} \\
+        Si & 15964.600 & \textcolor{red}{alpha (red)} \\
+        Ti & 15339.241 & \textcolor{red}{alpha (red)} \\
+        V & 15929.052 & \textcolor{orange}{iron peak (orange)} \\
+        Y & 15624.142 & \textcolor{Sepia}{s-process (brown)} \\
+        Yb & 16502.973 & \textcolor{Sepia}{s-process (brown)} \\
         \hline
     \end{tabular}
 \end{table}
