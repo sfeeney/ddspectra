@@ -149,7 +149,7 @@ window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename 
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
 alt_win = False
-win_wid = 2.5
+win_wid = 1.5
 eval_thresh = 1.0e-4
 n_gp_reals = 50
 recovery_test = False
@@ -167,17 +167,17 @@ opt_over_elem = True
 dist_met = 'abs' # 'abs' or 'euc'
 
 # target elements
-tgts = ['C', 'Na', 'Mg', 'Fe', 'Ce', 'Ge']
+tgts = ['C', 'Na', 'Mg', 'Fe', 'Yb', 'Ce']
 if win_wid < 2.5:
 	families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
 				'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Ca': 2, 'Cr': 3, \
 				'Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
-				'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+				'Ce': 5, 'Nd': 4, 'Y': 5, 'Yb': 4, 'Rb': 5, 'Ge': 5}
 else:
 	families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
 				'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Cr': 3, \
 				'Ca/Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
-				'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+				'Ce': 5, 'Nd': 4, 'Y': 5, 'Yb': 4, 'Rb': 5, 'Ge': 5}
 n_fam = len(tgts)
 cm_fam = mpcm.get_cmap('Paired')
 cols_fam = [cm_fam((2.0 * i + 1.0) / 11.0) for i in range(n_fam)]
@@ -896,6 +896,10 @@ for tgt in tgts:
 				#		color=cols_fam[families[tgt]], fontsize=14, \
 				#		bbox=dict(edgecolor='black', facecolor='None'))
 				ax.set_title(tgt)
+
+				# little bug fix: sometimes plotting vertical lines changes
+				# y_lim, which makes plot ugly
+				ax.set_ylim(y_min, y_max)
 
 				# plot std devs!
 				if n_tgt_windows == 1:

@@ -989,12 +989,12 @@ if rank == 0:
 		families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
 					'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Ca': 2, 'Cr': 3, \
 					'Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
-					'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+					'Ce': 5, 'Nd': 4, 'Y': 5, 'Yb': 4, 'Rb': 5, 'Ge': 5}
 	else:
 		families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
 					'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Cr': 3, \
 					'Ca/Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
-					'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+					'Ce': 5, 'Nd': 4, 'Y': 5, 'Yb': 4, 'Rb': 5, 'Ge': 5}
 	cm_fam = mpcm.get_cmap('Paired')
 	cols_fam = [cm_fam((2.0 * i + 1.0) / 11.0) for i in range(n_fam)]
 
