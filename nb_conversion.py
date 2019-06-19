@@ -983,6 +983,21 @@ else:
 # plots
 if rank == 0:
 
+	# elemental label colours
+	n_fam = 6
+	if win_wid < 2.5:
+		families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
+					'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Ca': 2, 'Cr': 3, \
+					'Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
+					'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+	else:
+		families = {'C': 0, 'N': 0, 'Na': 1, 'Al': 1, 'K': 1, 'P': 1, \
+					'Mg': 2, 'Ti': 2, 'Si': 2, 'O': 2, 'S': 2, 'Cr': 3, \
+					'Ca/Co': 3, 'Ni': 3, 'Mn': 3, 'Fe': 3, 'Cu': 3, 'V': 3, \
+					'Ce': 4, 'Nd': 4, 'Y': 5, 'Yb': 5, 'Rb': 5, 'Ge': 5}
+	cm_fam = mpcm.get_cmap('Paired')
+	cols_fam = [cm_fam((2.0 * i + 1.0) / 11.0) for i in range(n_fam)]
+
 	# selection of trace plots
 	fig, axes = mp.subplots(3, 1, figsize=(8, 5), sharex=True)
 	for k in range(n_classes):
@@ -1223,7 +1238,8 @@ if rank == 0:
 					axes[k].axvline(wendices[i], color='k', lw=0.5, ls=':')
 					axes[k].text(x_text, mp.gca().get_ylim()[0], \
 								 wlabels[i], fontsize=16, ha='center', \
-								 va='bottom')
+								 va='bottom', \
+								 color=cols_fam[families[wlabels[i]]])
 			axes[k].set_ylabel(r'${\rm flux}$', fontsize=18)
 
 		axes[-1].set_xlim(wl[0], wl[-1])
@@ -1332,9 +1348,13 @@ if rank == 0:
 								   right='off', left='off', \
 								   labeltop='off', labelbottom='on')
 			axes[k, i].autoscale(False)
+			xticklabels = axes[k, i].get_xticklabels()
+			yticklabels = axes[k, i].get_yticklabels()
 			for j in range(n_windows):
 				axes[k, i].axvline(wendices[j], color='gray', lw=0.5)
 				axes[k, i].axhline(wendices[j], color='gray', lw=0.5)
+				xticklabels[j].set_color(cols_fam[families[wlabels[j]]])
+				yticklabels[j].set_color(cols_fam[families[wlabels[j]]])
 		
 
 		# plot comparison between PCA and MAP covariances

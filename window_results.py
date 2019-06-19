@@ -106,6 +106,8 @@ def split_covariance(i_cond, cov, wendices, include=None, i_pred=None):
 				inds_pred = (wl >= wendices[i_pred - 1]) & \
 							(wl < wendices[i_pred])
 	n_pred = np.sum(inds_pred)
+	###print n_cond, n_pred, cov.shape
+	###exit()
 
 	# construct submatrices
 	s_cc = np.zeros((n_cond, n_cond))
@@ -126,7 +128,9 @@ def split_covariance(i_cond, cov, wendices, include=None, i_pred=None):
 
 # plot settings
 lw = 1.5
-mp.rc('font', family = 'serif')
+mp.rc('font', family='serif')
+#mp.rc('text', usetex=True)
+#mp.rcParams['text.latex.preamble'] = [r'\boldmath' + '\n' + r'\usepackage{amsmath}']
 mp.rcParams['text.latex.preamble'] = [r'\boldmath']
 mp.rcParams['axes.linewidth'] = lw
 mp.rcParams['lines.linewidth'] = lw
@@ -145,7 +149,7 @@ window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename 
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
 alt_win = False
-win_wid = 1.5
+win_wid = 2.5
 eval_thresh = 1.0e-4
 n_gp_reals = 50
 recovery_test = False
@@ -398,6 +402,9 @@ else:
 	if datafile is None:
 		mp_perm = [0]
 
+###print mp_cov.shape, data.shape
+###exit()
+
 # quick recovery test plot. dotted lines indicate full extent of inpainted
 # region
 if recovery_test:
@@ -515,6 +522,10 @@ for k in range(n_classes):
 		s_ii_inv = npl.inv(s_ii)
 		cond_cov = s_oo - np.dot(s_io.T, np.dot(s_ii_inv, s_io))
 		stddev[i, inds_o] = np.sqrt(np.diag(cond_cov))
+		###print n_windows, len(wendices), i
+		###print data.shape, inds_o.shape, wl.shape, s_ii.shape, s_io.shape, s_oo.shape
+		###print wl[inds_o].shape, cond_cov.shape
+		###exit()
 		axes[i, k].plot(wl[inds_o], np.sqrt(np.diag(cond_cov)))
 		axes[i, k].set_ylabel(r'$\sigma$')
 
@@ -683,8 +694,9 @@ for k in range(n_classes):
 	inf_gain_2d += np.diag(np.full(n_windows, np.nan))
 	cmr = mpcm.plasma_r
 	cmr.set_bad('k')
-	cax = axes_m[k].matshow(inf_gain_2d, interpolation='nearest', \
-							cmap=cmr)
+	cm.set_bad('k')
+	cax = axes_m[k].matshow(-0.5 * inf_gain_2d, interpolation='nearest', \
+							cmap=cm)
 	axes_m[k].set_xticks(range(n_windows))
 	axes_m[k].set_xticklabels(wlabels_sorted, rotation='vertical')
 	axes_m[k].set_yticks(range(n_windows))
@@ -853,23 +865,29 @@ for tgt in tgts:
 					ax = axes[k]
 				else:
 					ax = axes[i, k]
-				ax.plot(tot_inf_gain)
+				tot_inf_gain = np.array(tot_inf_gain)
+				ax.plot(-0.5 * tot_inf_gain)
 				y_min, y_max = ax.get_ylim()
 				for j in range(n_windows - 2):
-					ax.plot([j, j + 1], tot_inf_gain[j: j + 2], color=cols[j])
-					ax.plot([j, j], [y_min, tot_inf_gain[j]], \
+					ax.plot([j, j + 1], -0.5 * tot_inf_gain[j: j + 2], \
+							color=cols[j])
+					ax.plot([j, j], [y_min, -0.5 * tot_inf_gain[j]], \
 							color=cols[j], ls=':')
-				ax.set_xlabel(r'element $j$')
-				ax.set_ylabel(r'$\log|C_{ii|j}| - \log|C_{ii}|$')
-				ax.set_ylabel(r'$\log|C_{{\rm ' + tgt + \
-							  r'|}j}| - \log|C_{\rm ' + tgt + r'}|$')
-				xticklabels = [wlabels[mpw] for mpw in most_pred_w]
+				ax.set_xlabel(r'${\rm observed\,elements,}\,\mathbf{Y}^n$')
+				ax.set_ylabel(r'${\rm information\,gain,}\,' + \
+							  r'\frac{1}{2}\left[' + \
+							  r'\log|\mathbf{S}_{\rm ' + tgt + tgt + r'}|' + \
+							  r' - \log|\mathbf{C}_{{\rm ' + tgt + tgt + r'}|\mathbf{Y}^n}|' + \
+							  r'\right]$')
+				xticklabels = [wlabels[most_pred_w[mpw]] if mpw == 0 \
+							   else '+' + wlabels[most_pred_w[mpw]] \
+							   for mpw in range(n_windows - 1)]
 				ax.set_xticks(np.arange(n_windows - 1))
 				ax.set_xticklabels(xticklabels, rotation=90)
 				ax.set_xlim(0, n_windows - 2)
 				xticklabels = ax.get_xticklabels()
 				for j in range(n_windows - 1):
-					xtl_text = xticklabels[j].get_text()
+					xtl_text = xticklabels[j].get_text().strip('+')
 					if xtl_text in families:
 						xticklabels[j].set_color(cols_fam[families[xtl_text]])
 						if families[xtl_text] == families[tgt]:
