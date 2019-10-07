@@ -179,6 +179,7 @@ n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
+zero_mean = True
 jeffreys_prior = 1
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
@@ -188,7 +189,7 @@ alt_win = False
 win_wid = 1.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
-eval_thresh = 1.0e-4
+eval_thresh = 1.0e-2
 
 # build up output filename
 if datafile is None:
@@ -206,6 +207,8 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if zero_mean:
+	io_base += 'zm_'
 if jeffreys_prior == 0:
 	io_base += 'no_jp_'
 if alt_win:
@@ -650,10 +653,12 @@ spectra_samples = np.zeros((n_spectra, n_bins))
 for k in range(n_classes):
 	in_class_k = (class_id_sample == k)
 	if datafile is None:
-		mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
+		if not zero_mean:
+			mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
 		cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
 	else:
-		mean_sample[:, k] = np.mean(full_data[in_class_k, :], 0)
+		if not zero_mean:
+			mean_sample[:, k] = np.mean(full_data[in_class_k, :], 0)
 		cov_sample[:, :, k] = np.cov(full_data[in_class_k, :], rowvar=False)
 for j in range(n_spectra):
 	#spectra_samples[j, :] = mean_sample[:, class_id_sample[j]]
@@ -802,21 +807,22 @@ if sample:
 		# only class parameters require sampling; can do one class per 
 		# mpi process. first sample means
 		mean_sample = np.zeros((n_bins, n_classes))
-		for k in class_job_lists[rank]:
+		if not zero_mean:
+			for k in class_job_lists[rank]:
 
-			# class members
-			in_class_k = (class_id_sample == k)
-			n_spectra_k = np.sum(in_class_k)
+				# class members
+				in_class_k = (class_id_sample == k)
+				n_spectra_k = np.sum(in_class_k)
 
-			# sample signal mean
-			#mean_sample[:, k] = \
-			#	npr.multivariate_normal(np.mean(spectra_samples[:], 0), \
-			#							cov_sample / n_spectra, 1)[0, :]
-			mean_mean_k = np.mean(spectra_samples[in_class_k, :], 0)
-			mean_sample[:, k] = \
-				npr.multivariate_normal(mean_mean_k, \
-										cov_sample[:, :, k] / \
-										n_spectra_k, 1)[0, :]
+				# sample signal mean
+				#mean_sample[:, k] = \
+				#	npr.multivariate_normal(np.mean(spectra_samples[:], 0), \
+				#							cov_sample / n_spectra, 1)[0, :]
+				mean_mean_k = np.mean(spectra_samples[in_class_k, :], 0)
+				mean_sample[:, k] = \
+					npr.multivariate_normal(mean_mean_k, \
+											cov_sample[:, :, k] / \
+											n_spectra_k, 1)[0, :]
 
 		mean_sample = complete_array(mean_sample, use_mpi)
 
@@ -1315,14 +1321,18 @@ if rank == 0:
 		ext_cov = np.max((np.abs(mp_cov[:, :, k]), mp_cov[:, :, k]))
 
 		# plot comparison between full and low-rank covariances
+		if eval_thresh > 1.0e-4:
+			residual_boost = 50.0
+		else:
+			residual_boost = 500.0
 		axes[k, 0].matshow(mp_cov[:, :, k], vmin=-ext_cov, \
 						   vmax=ext_cov, cmap=mpcm.seismic, \
 						   interpolation='nearest')
 		cax = axes[k, 1].matshow(mp_cov_low_rank, vmin=-ext_cov, \
 								 vmax=ext_cov, cmap=mpcm.seismic, \
 								 interpolation = 'nearest')
-		axes[k, 2].matshow((mp_cov_low_rank - mp_cov[:, :, k]) * 500.0, \
-						   vmin=-ext_cov, vmax=ext_cov, \
+		axes[k, 2].matshow((mp_cov_low_rank - mp_cov[:, :, k]) * \
+						   residual_boost, vmin=-ext_cov, vmax=ext_cov, \
 						   cmap=mpcm.seismic, interpolation='nearest')
 		fig.subplots_adjust(right=0.8)
 		ax_pos = axes[k, 2].get_position()
@@ -1332,7 +1342,7 @@ if rank == 0:
 		axes[k, 0].set_title(r'Mean Posterior')
 		axes[k, 1].set_title('Mean Posterior (rank ' + \
 							 '{:d})'.format(n_eval_sig[k]))
-		axes[k, 2].set_title(r'Residual ($\times 500$)')
+		axes[k, 2].set_title(r'Residual ($\times {:d}$)'.format(int(residual_boost)))
 		x_text = []
 		for i in range(n_windows):
 			x_text.append(n_in_bin[i] / 2.0)
