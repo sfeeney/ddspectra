@@ -391,7 +391,7 @@ else:
 			# positions of features within three wavelength ranges. take 
 			# windows of +/- win_wid Angstroms about each line center; centers
 			# of 999 Angstroms should be ignored
-			wdata = np.genfromtxt(window, dtype=None, \
+			wdata = np.genfromtxt(window, dtype=None, encoding=None, \
 								  skip_header=1)
 			centers, elements = [], []
 			for i in range(len(wdata)):
@@ -1300,8 +1300,11 @@ if rank == 0:
 		# calculate spectral decomposition and plot evals
 		mp_cov_evals[:, k], mp_cov_evex[:, :, k] = \
 			npl.eigh(mp_cov[:, :, k])
-		ind_eval_sig = mp_cov_evals[:, k] > \
-					   np.max(mp_cov_evals[:, k]) * eval_thresh
+		if zero_mean:
+			max_eval = np.min(np.partition(mp_cov_evals[:, k], -2)[-2:])
+		else:
+			max_eval = np.max(mp_cov_evals[:, k])
+		ind_eval_sig = mp_cov_evals[:, k] > max_eval * eval_thresh
 		n_eval_sig[k] = np.sum(ind_eval_sig)
 		eval_bins = np.logspace(np.log10(mp_cov_evals[0, k]), \
 								np.log10(mp_cov_evals[-1, k]), 20)
