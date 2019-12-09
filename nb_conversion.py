@@ -170,7 +170,7 @@ use_mpi = True
 recovery_test = False
 constrain = False
 no_s_inv = False
-sample = False
+sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
@@ -179,14 +179,14 @@ n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
 n_gp_reals = 50
-zero_mean = True
-jeffreys_prior = 1
+zero_mean = False
+jeffreys_prior = False
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
 save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
 alt_win = False
-win_wid = 1.5
+win_wid = 2.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-2
@@ -209,8 +209,8 @@ if precompress:
 		io_base += 'pca_'
 if zero_mean:
 	io_base += 'zm_'
-if jeffreys_prior == 0:
-	io_base += 'no_jp_'
+if not jeffreys_prior:
+	io_base += 'iw_prior_'
 if alt_win:
 	io_base += 'alt_win_'
 if recovery_test:
@@ -836,7 +836,12 @@ if sample:
 
 			# sample signal covariance matrix
 			# NB: scipy.stats uses numpy.random seed, which i've already set
-			n_dof = n_spectra_k - (1 - jeffreys_prior) * (n_bins + 1)
+			if jeffreys_prior:
+				n_dof = n_spectra_k
+			else:
+				n_dof = n_spectra_k + n_bins + 1
+			if i == 0:
+				print 'conditional dofs = {:d}'.format(n_dof)
 			sigma = np.zeros((n_bins, n_bins))
 			for j in range(n_spectra):
 				if in_class_k[j]:
