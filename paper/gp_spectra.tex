@@ -65,7 +65,6 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%\title[DaSpec: Data Driven Spectral Modeling]{DaSpec: Data-Driven Spectral Modeling to enhance, inpaint, and quantify the information structure in spectra}
 \title[Stellar Spectra as Sparse Non-Gaussian Processes]{SSSpaNG! Stellar Spectra as Sparse, data-driven, Non-Gaussian processes}
 \author[S. M. Feeney et al.]{
 Stephen M. Feeney,$^{1,2}$\thanks{E-mail: stephen.feeney@ucl.ac.uk}
@@ -112,92 +111,21 @@ Surveys such as APOGEE \citep{Majewski2017}, GALAH \citep{deSilva2015}, Gaia-ESO
 
 High-SNR spectra have been often regarded as necessary in the pursuit of precision abundances, required for  chemical differentiation across the Galaxy.  These abundances trace the detailed chemical evolution of the Milky Way, which is driven by an ensemble of stellar explosion and mass-loss activity. In the Galactic disk, where the majority of the stellar mass resides, abundances are the record of its inside-out formation over time~\citep{Rix2013,BH2016}. The earliest epoch of the Galaxy's formation and its continued interaction with its environment, is documented in the chemical composition and characteristics of the stellar halo~\citep[e.g.][]{Keith2015,Payel2019, Helmi2018}.  Current data place strong constraints on the chemical evolution models designed to explain Galactic formation and evolution~\citep[e.g.][]{Minchev2013,Minchev2014b,Robyn2018, Weinberg2019, Clarke2019, Blancato2019}. Upcoming data offer the opportunity to refine these models considerably: for example, the disk is also believed to comprise  numerous individual birth sites where groups of stars were born. Any prospect of assigning stars to their birth sites via their unique chemical signatures~\citep[e.g.][]{BH2010} requires large stellar numbers and high precision abundance measurements~\citep{Mits2013, Ting2015, Hogg2016, Arm2018}. 
 
-%Exploiting upcoming surveys to measure large numbers of elemental abundances for many ($> 10^6$) stars will, in principle, allow stars to be assigned to their birth sites via their unique chemical signatures \citep[e.g.][]{BH2010}. 
-%The largest ($> 10^5$ star) current surveys have already enabled tremendous leaps forward in our empirical characterization of the Milky Way and understanding of its assembly 
-% trace the Galaxy's earliest epoch, interaction with its environment and diversity of origin
-
-
 The large data volumes now in hand have led to the development of new approaches for deriving abundance measurements from spectral data, driven by the need for automatic, efficient means of extracting the full information content of the data. These include data-driven modeling approaches such as The Cannon \citep{Ness2015}, full spectral fitting using physical models as implemented in The Payne \citep{Ting2018} and  deep learning \citep{Leung2019}. These approaches improve the precision of abundance measurements significantly, permitting useful abundances to be estimated using 1/4 to 1/9th of the observing time compared to previous approaches. Specifically, abundance precisions on the order of 0.05-0.1 dex can be achieved at SNR $\approx$ 40 per pixel \citep{Ho2017b,Ness2018,Ting2018, Leung2019}. It has also been demonstrated that an ensemble of individual abundances can be derived at medium (R=11,000) and low (R=1,800) resolution by full spectral modeling \citep[e.g.][and Wheeler et al., submitted]{Casey2016,Ting2017}. Physically, this is well-justified: abundances can be measured from their impact on the entire spectral range as legitimately as from individual elemental lines~\citep[e.g.][]{Ting2018}. This methodological advance in particular is relevant for the Gaia RVS data (R=11,000 spectra for 7 million objects) and, furthermore, the large ensemble of low-resolution data being observed in future surveys. The dramatic and rapid increase in available spectra and availability of increasingly powerful computational resources means we find ourselves in an era of tremendous opportunity for developing new avenues of stellar spectral modeling.
 
 Central to the success of The Cannon and The Payne is pooling: sharing information between members of a population to improve our knowledge of individual stars. In The Cannon, pooling is performed in a data-driven fashion by learning the relationship between stellar spectra and individual stellar abundances; in The Payne, (during the training step) by calibrating physical models of stellar spectra using labels derived therefrom. In this paper, we seek to generate a data-driven model of the stellar spectra themselves, as opposed to the abundance measurements, formalizing this concept of pooling within a Bayesian hierarchical model. By sharing information between stars, we will generate more precise representations of individual spectra, directly infer the correlation structure between spectral pixels and, in the process, gain understanding of the information content of the data. To date, there has been little work on the characterization and interpretation of the correlations between (and the dimensionality of) spectral data \citep[see however][]{Ting2012, PJ2019, M2014, Casey2019}. Our methodology will provide a direct measure of the information content of spectral regions and, correspondingly, elemental abundances.
-
-%This has in large part been the motivation for surveys like Sloan V's Galactic Genesys program using observations of stars at R=22,500, using the same instrument as APOGEE. Sloan V is obtaining an order of magnitude more stars within its Galactic Genesys  ($>$ 10$^6$) via more efficient sky sampling and by relaxing the SNR limit to $\sim$ 40 per pixel. Even such lower SNR spectra can yield  abundance precisions on the order of 0.05-0.1 dex given current approaches \citep{Ness2015, Ting2015}. Yet, what are the additional opportunities to use the ensemble of spectra to inform individual objects in the modeling of stellar spectra? Additionally, GAIA will deliver medium resolution spectra (R=11,000) for 7 million objects.   The coming decade will see increasing numbers of observations of stars by many orders of magnitude sets. We have the corresponding tremendous opportunity for data-driven modeling of these stars across our Galaxy. 
-
-%To date, there has been to date little work on the characterization and interpretation of the correlations within and dimensionality of the data \citep[see however][]{Ting2012, PJ2019, M2014}. Surveys currently might optimise their wavelength regions to attain an optimal number of element absorption features from which to make measurements, and aim for high signal to noise data to try to obtain high element abundance precision measurement. However, empirically the relationship between signal to noise, precision and the actual {\it information gain} by observing any additional N+1 element given N measured elements, across a given wavelength region at a given resolution is unknown.  Furthermore, how is the information gain from measuring an increasing number of elements (presumably) variant across different elements and different stellar populations of field stars in the disk, halo and clusters? 
-
- % We then examine how well this model reproduces individual spectra and interpret the correlation structure we measure in the data. We are able to examine and quantify the correlations in the spectral features on a per pixel level across different wavelength regions, which we select to correspond to a set of abundance features. We explore and report the information content of these features.
  
 We use stars observed by the APOGEE survey to build an extremely general and flexible empirical model of a large set of spectral data. Specifically, we implement a Gaussian Process~\citep{Rasmussen_Williams} mixture model representation of the APOGEE red clump stars. Unlike typical Gaussian Process analyses, we infer each element of our covariance matrices directly, without assuming a kernel function, and marginalize over the covariances when quoting our inferred true spectra. As a result, and contrary to analyses in which the covariance is fit once and fixed, the prior distributions of our true spectra are highly non-Gaussian, with a non-convex sparsifying prior. Our method is a significant new technical advance in the modeling of stellar spectra and is distinct from, but builds upon, existing progress in data-driven spectral modeling in the regime of large data sets. We use no physical knowledge in constructing our model or selecting priors, and our inference is therefore entirely driven by common trends in the high-dimensional APOGEE data. In successfully pooling information about stars we achieve the following for the APOGEE spectra:
-% reorder this 
-%1. correlations
-%2. iformation content
-%3. masked regions
-%4. make a metric to demonstrate - denoised spectra so can quantify in a section In terms of variances []
-%ratio of standard deviations of the pink to the grey
+
 \begin{enumerate}
-\item Prediction of masked (unmeasured or contaminated) regions of the spectra to enable, e.g., abundance measurements that would otherwise be impossible (see Sections~\ref{sec:validation} and~\ref{sec:inference}). This is particularly valuable in APOGEE for neutron-capture elements such as Nd and Ce, for which only a handful of weak features exist from which to estimate abundances. %\smf{weak features?}
-%Valuable elements like Nd and Ce add the additional dimensionality of the neutron-capture nucleosynthetic family (see Section~\ref{sec:data}). 
-%mkn - check abundance families 
-Some of these elemental features may fall near one of three chip gaps and therefore be absent in some (but, critically, not all) spectra due to stellar velocities. Our modeling of the data can predict these regions when they are absent. 
+\item Prediction of masked (unmeasured or contaminated) regions of the spectra to enable, e.g., abundance measurements that would otherwise be impossible (see Sections~\ref{sec:validation} and~\ref{sec:inference}). This is particularly valuable in APOGEE for neutron-capture elements such as Nd and Ce, for which only a handful of weak features exist from which to estimate abundances. Some of these elemental features may fall near one of three chip gaps and therefore be absent in some (but, critically, not all) spectra due to stellar velocities. Our modeling of the data can predict these regions when they are absent. 
 \item Denoising of all spectra, enabling higher precision measurements at lower SNR (see Section~\ref{sec:inference}). The utility of this feature depends on the size of the effects we wish to discover. Our expectation is that this is particularly useful for weak features on the limits of detection, similar to previous demonstrations using generative modeling (e.g. The Cannon and The Payne).
-% Our expectation is that this is particularly good for very weak features where our expectation is that our generated spectra can do a lot better with abundance measurements, similarly to that previously demonstrated with generative modeling (e.g. with The Cannon and The Payne).
-\item Detailed examination of the empirical correlations in the spectra, quantitative measurements of these correlations and identification of which elemental absorption lines are positively and negatively correlated (see Section~\ref{sec:inference}). %[Section 2: might just want to add a plot of which are + and which are - correlated] 
+\item Detailed examination of the empirical correlations in the spectra, quantitative measurements of these correlations and identification of which elemental absorption lines are positively and negatively correlated (see Section~\ref{sec:inference}).
 \item Quantification of the information content of the data and determination of the most informative regions of spectra (see Section~\ref{sec:info}). This has consequences for both theory and experimental design. Along with the correlation structure we infer, the information content that we measure should place strong constraints on physical models of nucleosynthesis and chemical evolution. From an experimental design perspective, quantifying the informativeness of regions of spectra can drive the selection of wavelength ranges optimized for specific scientific purposes, answering questions such as whether we can retain sensitivity to abundances by observing a reduced spectral range, or conversely whether we gain significant information on a range of elemental features by observing a particular set of wavelengths.
 \end{enumerate}
 
 In the following, we describe the APOGEE data we use in Section~\ref{sec:data} and our model and its inference in Section~\ref{sec:methods}. We present our results in Section~\ref{sec:results} and discuss their consequences, current limitations and plans for their resolution in Section~\ref{sec:discussion}.
 
-%Specifically, we examine empirically gained by adding an additional element of the same or different nucleosynthetic family in terms of additional spectral information? How correlated or anti-correlated are different spectral features in the data? With respect to the signal to noise required for precision abundance measurements, data-driven modeling like The Cannon and also The Payne have shown that the same precision can be obtained for APOGEE data with 1/4 to 1/9th of the observing time (1/2 to 1/3 of the SNR, so a SNR of around 40 compared to 100 for most abundances) and a precision near the theoretical limit (kramer-rao bound) can be obtained for APOGEE around a SNR of 40 (check), for most elements, which has motivated surveys like Sloan V to optimise their numbers of stars by collecting lower SNR data. 
-
-
-
-%Is there any purpose of measuring all these elements? Empirically extra information in them? 
-
-%-first look at the information content of the spectra
-%-first characterisation and mapping of the element correlations
-
-%state just red clump sample 
-
-%[Ce, Cu, Mg, Ni, Mn, N, C, Ti, Si, Mg, Na, Fe, O, Ti, Ca, Nd, Fe, Si, Mn, Al, N, Ni, C]
-%light: C, N
-%light odd-Z: Na, Al
-%alpha: Mg, Ti, Si, O
-%iron-peak: Cu, Ni, Mn, Fe
-%neutron capture r-process: Ce, Nd
-
-
-
-%Fig 4 - trying to bring out the correlation structure in a slightly different way
-
-%Fig 4 - perfectly uncorrelated would be random purpose and yellow because none of the pixels in the bin compare about any of the pixels in any other bin. If perfectly correlated yellow all up the top, purple all down the bottom. 
-
-%-not parameterised in any physical way
-%understanding of stellar spectra is truly rudimentary 
-%this is part of a bigger effort in order to (under the assumption that everything is Guassian) allows us to learn the covariance at every point completely independent of any given physical template. 
-%- question about the degrees of freedom (N*N)/2 degrees of freedom, diagonal of the covariance matrix
-%- big thing is it shows the covariances
-%-understand what the information content of the spectra%
-%-inferring true spectra of every star.( N*N + Nclasses*2 + N*N)/2
-%in the context of a much more sophistocated model 
-%-runs into problems as matrix algebra (just gets really slow) 
-%-new things
-%-can do de-noising 
-
-%Fig 6: information gain for each element and then pick the one that is most informative and then calculate the information gain on the window of interest given most informative element and each other one
-%-log of the determinant of the covariance matrix of the window/ log of the covariance matrix of the window conditioned on other data
-%-
-
-
-
-%to do: For the Figure 6 - a list of the windows and the element families and then that is a whole little section . 
-
-%Fig 2 - go down to just the window
-
-%Fig 5: corner put SNR 
-
-%state just red clump sample 
-
-%How will we do this? By modeling the spectra as a data-driven Gaussian Process. What is a Gaussian Processand what are relevant applications.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -205,15 +133,9 @@ In the following, we describe the APOGEE data we use in Section~\ref{sec:data} a
 \section{Data}
 \label{sec:data}
 
-For our modeling we use the APOGEE red clump spectra from DR14 \citep{Majewski2017, Bovy2015}. These spectra comprise $29502$ stars with a mean SNR of 210 and range of SNR of 21-1775.  The contamination of red giant stars within this sample is on the order of 5-10 percent \citep{Bovy2015}. %While our approach is generalisable across the entire stellar parameters, we to simplify our technical choices by restricting to the narrow temperature and gravity range of the red clump stars. These technical choices, in particular,  pertain to the inclusion and optimisation of multiple classes in the Gaussian Process modeling. 
-While our approach is applicable to any stellar population, we select a largely homogeneous population for this proof of concept, restricting to the narrow temperature and gravity range of the red clump stars. Doing so should reduce the number of components required for our Gaussian Process mixture model, simplifying its inference.
+For our modeling we use the APOGEE red clump spectra from DR14 \citep{Majewski2017, Bovy2015}. These spectra comprise $29502$ stars with a mean SNR of 210 and range of SNR of 21-1775.  The contamination of red giant stars within this sample is on the order of 5-10 percent \citep{Bovy2015}. While our approach is applicable to any stellar population, we select a largely homogeneous population for this proof of concept, restricting to the narrow temperature and gravity range of the red clump stars. Doing so should reduce the number of components required for our Gaussian Process mixture model, simplifying its inference.
 
-
-
-%These make an ideal test case for our modeling being restricted in their range of effective temperature and surface gravity so we can assume that our overall measurements are driven by abundance variations and not systematic variations across stellar parameters. The metallicity range of the red clump stars span --1.0 $<$ [Fe/H] $<$ 0.5 and they are distributed from R$_{GAL}$ = 4 to 20 kpc. 
-
-The data have been downloaded from the APOGEE database and are radial velocity shifted back to the rest frame and continuum-normalised, with a slight SNR dependence on the continuum normalisation that we discover with our Gaussian Process modeling. The spectra cover the range 15100.80-16999.81 \AA, and comprise $\nb = 8575$ spectral bins. Repeated inversion of the $\nb \times \nb$ covariance matrices required for inference would be prohibitively slow, and we thus restrict our analysis to a set of 25 spectral windows centred on lines confidently assigned to 25 different individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances in consultation with Jon Holtzman and Matthew Shetrone \citep{Holtzman2015, Shetrone2015}. Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres specified in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. %These spectral windows were selected using the APOGEE line list and communication with Jon Holtzman and Matthew Shetrone \citep{Holtz2015}. 
-The elements responsible for these absorption lines can be grouped into the following nucleosynthetic families: iron-peak, alpha-process, r-process, s-process, light and light with odd atomic number. We expect that common production mechanisms should correlate elemental abundances and hence these spectral windows. To examine correlations between and within the nucleosynthetic family members, we colour the elements by their families in relevant figures throughout the paper, setting out these colours in Table~\ref{tab:window_centres}.
+The data have been downloaded from the APOGEE database and are radial velocity shifted back to the rest frame and continuum-normalised, with a slight SNR dependence on the continuum normalisation that we discover with our Gaussian Process modeling. The spectra cover the range 15100.80-16999.81 \AA, and comprise $\nb = 8575$ spectral bins. Repeated inversion of the $\nb \times \nb$ covariance matrices required for inference would be prohibitively slow, and we thus restrict our analysis to a set of 25 spectral windows centred on lines confidently assigned to 25 different individual elements. These element windows have been chosen from the set of windows used to drive the APOGEE abundances in consultation with Jon Holtzman and Matthew Shetrone \citep{Holtzman2015, Shetrone2015}. Specifically, we process all spectral bins within $\pm 1.5$ \AA\ of the line centres specified in Table~\ref{tab:window_centres}, reducing the number of spectral bins to $\nb = 343$ and hence inversion time by a factor of $\sim15000$. The elements responsible for these absorption lines can be grouped into the following nucleosynthetic families: iron-peak, alpha-process, r-process, s-process, light and light with odd atomic number. We expect that common production mechanisms should correlate elemental abundances and hence these spectral windows. To examine correlations between and within the nucleosynthetic family members, we colour the elements by their families in relevant figures throughout the paper, setting out these colours in Table~\ref{tab:window_centres}.
 
 \begin{table}
     \centering
@@ -281,10 +203,6 @@ Our Gaussian Process model goes beyond standard approaches. As we sample the ind
 	\prob\left(\objspec_i|\specmean,\speccov\right)
 	\prob\left(\speccov\right)
 d\speccov \nonumber \\
-%& \propto \int
-%	\left| \speccov \right|^{-\frac{\left( 2\nb+3 \right)}{2}}
-%	e^{-\frac{1}{2} \left[\left(\objspec_i-\specmean \right) \speccov^{-1} \left(\objspec_i-\specmean \right)^T + {\rm Tr}\left( \epsilon \identity \speccov^{-1} \right) \right]}
-%d\speccov \nonumber \\
 & \propto \int
 	\left| \speccov \right|^{-\frac{\left( 2\nb+3 \right)}{2}}
 	e^{-\frac{1}{2} {\rm Tr}\left( \left[ \left(\objspec_i-\specmean \right) \otimes \left(\objspec_i-\specmean \right) + \epsilon \identity \right]  \speccov^{-1} \right)}
@@ -297,20 +215,6 @@ where the integral can be performed by identifying the integrand as an un-normal
 e^{-\frac{\nb + 2}{2} \ln{ \left| \left(\objspec_i-\specmean \right) \otimes \left(\objspec_i-\specmean \right) + \epsilon \, \identity \right|}},
 \end{equation}
 from which it becomes clear that this is a non-convex highly sparsifying prior. Conceptually, it strongly prefers spectra close to the class mean, but if a spectrum differs greatly from the mean it is only penalized logarithmically. Note that the covariance prior's scale matrix, $\epsilon \, \identity$, acts to soften the prior, providing a small but non-zero floor to the determinant that reduces the preference for spectra exactly matching the mean.}
-
-%\bdw{To demonstrate the effectively non-Gaussian nature of the signal prior we can explicitly marginalize over the true signal covariance $\speccov$. Considering only the terms that depend on $\speccov$ for one mixture component,
-%\begin{equation}
-%    \int 
-%    \prob\left(\objspec_i|\specmean,\speccov,\objclass_i\right)
-%    \prob\left(\speccov_k\right)
-%    \left| \speccov \right|^{-\left(\nb+1\right)/2} dS
-%\end{equation}
-%gives
-%\begin{equation}
-%\prob\left(\objspec_i|\specmean,\objclass_i\right)  \propto 
-%e^{-\frac{n_s}{2}\ln{\det\left(\sum_{\objclass_i = k} \left(\objspec_i-\specmean_k \right)\left(\objspec_i-\specmean_k \right)^T\right)}}.
-%\end{equation}
-%This is a non-convex strongly sparsifying prior. Conceptually, it strongly prefers spectra close to the class mean, but if a spectrum strongly differs from the mean it is only penalized logarithmically. }\bdw{This is a bit abbreviated. The statement is precise for a single spectrum; for  more spectra it's true if the deviations from the mean are orthogonal. It's easier to see if the eigenbasis of S are fixed a priori and there is a single spectrum, then the statement above is true for the expansion coefficients of the spectrum in spectrum in the eigenbasis.}
 
 \begin{table}
     \centering
@@ -346,7 +250,6 @@ from which it becomes clear that this is a non-convex highly sparsifying prior. 
         distribution & form & process \\
         \hline
         $\prob\left(\specmean_k\right)$ & $\uniform\left(-\infty,\infty\right)$ & Prior on $k^{\rm th}$ class's mean spectrum \\
-%        $\prob\left(\speccov_k\right)$ & $\left| \speccov \right|^{-\left(\nb+1\right)/2}$ & Prior on $k^{\rm th}$ class's spectrum covariance \\
         $\prob\left(\speccov_k\right)$ & \smf{$\invwish \left(\nb+1, \epsilon\,\identity \right)$} & Prior on $k^{\rm th}$ class's spectrum covariance \\
         $\prob\left(\classprobs|\alpha\right)$ & $\dirichlet\left(\alpha\right)$ & Prior on class probabilities \\
         $\prob\left(\objspec_i|\specmean,\speccov,\objclass_i\right)$ & $\normal\left(\specmean_{k=\objclass_i},\speccov_{k=\objclass_i}\right)$ & $i^{\rm th}$ object's spectrum as Gaussian Process \\
@@ -354,7 +257,6 @@ from which it becomes clear that this is a non-convex highly sparsifying prior. 
         $\prob\left(\objdata_i|\objspec_i,\objnoise_i\right)$ & $\normal\left(\objspec_i,\objnoise_i\right)$ & Noisy, masked spectral measurements \\
         \hline
         $\prob\left(\specmean_k | \speccov_k, \objspec, \objclasses \right)$ & $\normal \left( \frac{1}{n_k} \sum_{\objclass_i = k} \objspec_i, \frac{1}{n_k} \speccov_k \right)$ & Conditional of $k^{\rm th}$ class's mean spectrum \\
-%        $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & $\left| \speccov_k \right|^{-(n_k + \nb + 1)/2} \exp \left( -\frac{1}{2} {\rm tr} \left[ \scalemat_k \speccov_k^{-1} \right] \right)$, where & Conditional of $k^{\rm th}$ class's spectrum covariance \\
         $\prob\left(\speccov_k | \specmean_k, \objspec, \objclasses \right)$ & \smf{$\invwish \left(n_k + \nb + 1, \scalemat_k + \epsilon \, \identity \right)$}, & Conditional of $k^{\rm th}$ class's spectrum covariance \\
          & where  $\scalemat_k = \sum_{\objclass_i = k} \left( \objspec_i - \specmean_k \right) \otimes \left( \objspec_i - \specmean_k \right)$ & \\
         $\prob\left(\classprob_k | \objclasses, \alpha\right)$ & $\dirichlet\left(\alphas\right)$, where $a_k = \alpha + n_k$ & Conditional of class probabilities \\
@@ -382,8 +284,7 @@ To avoid the complications of comparing data gathered by different spectrographs
 
 The measured data for this star in the artificially masked region are plotted in Figure~\ref{fig:recovery_test} as a solid black line. The 68\% credible interval for the posterior probability on the star's true spectrum is plotted as dark grey, with the corresponding prediction for the observed spectrum (which also takes into account the [known] uncertainty on the observations) plotted in light grey. This prediction (strictly speaking, the posterior predictive distribution of the measured data) is in excellent agreement with the measured data, indicating that our model is capable of in-painting masked regions without bias. Note, in addition, that the uncertainty on the true spectrum is much smaller than the measurement noise, demonstrating our method's ability to de-noise observed spectra by sharing information between stars (a phenomenon known as {\it shrinkage}~\citep[see, e.g.,][Chapter 13]{Busemeyer_etal:2015}).
 
-This de-noising property is relevant in the regime of extracting information from both weak lines and lower signal-to-noise data than typically required. In addition to the neutron capture element, Ce, the APOGEE spectral region has been shown to contain a number of r-process neodymium (Nd II) lines, which~\citet{Hasselquist_etal:2016} estimates are detectable in $\approx$ 18 percent of APOGEE spectra using equivalent width fitting techniques. Our expectation is this fraction will greatly improve given our Gaussian process modeling of the spectral lines, which can fit the true spectra of stars with lower uncertainty than the measurement noise. 
-%, similarly to our demonstration of the Ce line, can generate a spectral model with lower uncertainty than the measurement noise
+This de-noising property is relevant in the regime of extracting information from both weak lines and lower signal-to-noise data than typically required. In addition to the neutron capture element, Ce, the APOGEE spectral region has been shown to contain a number of r-process neodymium (Nd II) lines, which~\citet{Hasselquist_etal:2016} estimates are detectable in $\approx$ 18 percent of APOGEE spectra using equivalent width fitting techniques. Our expectation is this fraction will greatly improve given our Gaussian process modeling of the spectral lines, which can fit the true spectra of stars with lower uncertainty than the measurement noise.
 
 
 We note that for this illustration we have inpainted one narrow window of a single star's spectrum, but this is generalisable to inpaint any spectral window, for any star. The predictive power to generate the spectra from the ensemble of all other stars and given prior measured spectral regions is detailed further in Sections~\ref{sec:inference} and~\ref{sec:info}. 
@@ -401,30 +302,17 @@ We note that for this illustration we have inpainted one narrow window of a sing
 
 Our inference produces samples of the probability, mean spectrum and covariance matrix for each class considered, and the true spectrum and class membership of each object. Focusing initially on the single-class case, we plot our covariance and mean inference in Figures~\ref{fig:inferred_cov} and~\ref{fig:gp_reals}, respectively. We plot the mean-posterior covariance matrix in Figure~\ref{fig:inferred_cov} (left panel). The covariance has strong off-diagonal structure, indicating that certain spectral features are highly correlated and anti-correlated. Its eigenspectrum also decays rapidly: only 239 of 343 eigenmodes have eigenvalues larger than $10^{-4}$ of the maximum, and only six larger than $10^{-2}$ of the maximum. A low-rank approximation to the mean covariance retaining only the six largest eigenmodes is plotted in the centre panel of Figure~\ref{fig:inferred_cov}, and the resulting residuals (multiplied by a factor of 50 to render visible) in the right panel. Exploiting this decaying eigenspectrum by assuming the covariance is rank deficient would greatly reduce computation time (by a factor of roughly 187000 if six modes were retained!) but is left for future investigation.
 
-% The most na\"ive method of reducing the covariance's rank is to project the data onto the largest $m < \nb$ principal components of the sample covariance matrix prior to inference. Unfortunately, \bdw{discussing this in such close proximity to the previous point can be confusing: the figure shows the inferred \textit{signal} covariance, whereas this discussion of pre-compression refers to the sample covariance of the data; I think this is a technical point that could be moved to a short subsection in the discussion on "computational considerations."} as the sample covariance contains both noise and signal its principal components are suboptimal for this task, severely degrading the inference. Modifying the hierarchical model (along the lines of \citet{Zhang_etal:2013}) to explicitly infer a rank-deficient covariance matrix is left to future work.\footnote{The structure of the covariance matrix also implies that certain kernels could potentially serve as useful covariance functions. Exploration of the utility of, for example, rational quadratic, Gibbs or mixtures of covariance functions~\citep{Rasmussen_Williams} is also left to future work.}
-
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_iw_prior_win_wid_1p5_very_low_rank_covariance.pdf}
     \caption{Left: the mean-posterior covariance matrix ($\speccov$) of the 343 spectral pixels that we model, with the corresponding colour bar giving the magnitude of this covariance (in units of flux$^2$). The divergent colour map shows the most positive and negative covariances in red and blue respectively and zero covariance as white. This matrix demonstrates that the spectral pixels are highly correlated. Centre: a reduced-rank approximation of the mean-posterior covariance matrix, constructed using only those eigenvectors with eigenvalues within $10^{-2}$ of the largest. This represents a factor of 57 reduction in the number of eigenvectors used to construct the mean-posterior covariance matrix. Right: the residual between the mean-posterior covariance matrix and its reduced-rank approximation, boosted by a factor of 50. This nearly diagonal residual shows that most of the variation between the denoised spectra is strongly correlated between spectra bins.}
     \label{fig:inferred_cov}
 \end{figure*}
-% to try to demonstrate how many 
-% can speed things up in the inference by reducing the rank of the covariance matrix which is a 30 percent reduction in the number of pixels. 
-%reduced rank puts null modes in the matrix - all structure in residuals is india
-% the low rank version is missing variance on the diagonal 
 
 \begin{figure*}
 	\includegraphics[width=2\columnwidth]{apogee_centers_final_29502_spc_iw_prior_win_wid_1p5_gp_realizations.pdf}
     \caption{The mean-posterior mean spectrum ($\specmean$) of our Gaussian process model fit using the APOGEE data (black), along with 50 random realizations of potential true spectra ($\objspec$). These draws are coloured from purple to yellow according to their flux in the first spectral bin, and serve to demonstrate the correlations between pixels. Entirely uncorrelated data would show no structure in the colour gradient beyond the first bin; however, we see a clear stratification of yellow to purple as a function of the flux magnitude for most of the pixels.}
     \label{fig:gp_reals}
 \end{figure*}
-
-%using samples of covariance matrix and samples of sample posterior you can draw examples of the spectra itself 
-%samples of mean and covariance and pick a randomly chosen sample and draw a realisation of that Gaussian process from that mean and covariance. 
-%mean spectrum m (posterior) and some covariance s and then have samples of those; black ine is the sum over i of the m/i 
-%realisations are gaussian with mean of mi and covafaince si) 
-%m$_i$, s$_i$, \specmean = \frac{\sum{i=1}{n}}{m_i}{n}; r $\sim$ N(\specmean_i, \speccov_i) 
-%\specmean\ and \speccov
 
 The posterior mean of the mean spectrum is plotted in black in Figure~\ref{fig:gp_reals}. The mean spectrum is extremely well constrained: its 68\% credible interval is narrower than the width of the line. To illustrate the covariance structure captured by our model, we overlay 50 realizations drawn from our Gaussian process model conditioned on the APOGEE data, colour-coded by the value they take in the first spectral bin. These samples can be interpreted as examples of potential noiseless true spectra that could have led to the data. They illustrate the variability permitted by the model and highlight certain clear trends, most notably highly correlated differences in line depths.
 
@@ -443,9 +331,7 @@ The results presented up to this point assume that the APOGEE red clump stars be
 \subsection{The Measured Information Content in the Spectra}
 \label{sec:info}
 
-We now turn to quantifying the information contained in each elemental window. Our aim is to determine the regions of spectra that are most informative about particular elements of interest. We must note, however, that our elemental windows can contain spectral features in addition to the central absorption line, and thus strong correlations between two windows are not necessarily due solely to the central elements themselves.
-%, which are not absorption features of the element of interest itself. 
-We start with the mean-posterior covariance within each window, $\bar{\speccov}_{XX}$, as this describes the fundamental uncertainty with which we can predict the true spectrum of a new red clump star having observed our APOGEE sample. The subscript $X$ here denotes the spectral bins defining the elemental window of interest. We summarize this covariance matrix for six elemental windows ($X=\{{\rm C, Na, Mg, Fe, Yb, Ce}\}$: one from each elemental family) by plotting the root-mean-square (RMS) uncertainty,
+We now turn to quantifying the information contained in each elemental window. Our aim is to determine the regions of spectra that are most informative about particular elements of interest. We must note, however, that our elemental windows can contain spectral features in addition to the central absorption line, and thus strong correlations between two windows are not necessarily due solely to the central elements themselves. We start with the mean-posterior covariance within each window, $\bar{\speccov}_{XX}$, as this describes the fundamental uncertainty with which we can predict the true spectrum of a new red clump star having observed our APOGEE sample. The subscript $X$ here denotes the spectral bins defining the elemental window of interest. We summarize this covariance matrix for six elemental windows ($X=\{{\rm C, Na, Mg, Fe, Yb, Ce}\}$: one from each elemental family) by plotting the root-mean-square (RMS) uncertainty,
 \begin{equation}
 \bm{\sigma}_X = \sqrt{{\rm diag} \left[\bar{\speccov}_{XX}\right]},
 \end{equation}
@@ -491,23 +377,11 @@ We plot the RMS uncertainties after conditioning on the $1 \le n \le \nb-1$ most
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_iw_prior_win_wid_1p5_yb_inf_gain.pdf}
 	\includegraphics[width=\columnwidth]{apogee_centers_final_29502_spc_iw_prior_win_wid_1p5_ce_inf_gain.pdf}
     \caption{Information gains for our illustrative elemental windows obtained by observing the other 24 windows. The x-axis of each panel lists, from left to right, the window that would provide the most information on the element of interest assuming all previous windows have been observed. To take the top left-hand panel as an example: one would learn the most about the C window by observing Ni, then adding Ce, Ti, Cr {\it et cetera}. The y-axis quantifies the resulting information gain, and can be interpreted as a change in entropy of the system or the factor of reduction in the total uncertainty on the target window's predicted spectrum provided by observing the other windows. Note the different y-axis ranges for the six different elements (the most extreme being Yb and Mg): the larger the overall information gain, the better the elemental window is predicted by the rest of the spectrum. Note also that while the gain from observing successive elements decreases it does not entirely flatten: each individual element adds information on the target element. Finally, the finite range of these plots indicates that, though elements are highly correlated, no one perfectly predicts another.}
-%    \caption{These set of figures represent the information gains for the windows corresponding to the elements C, Na, Mg, Fe, Ce and Ge, as shown in the top of each sub-panel, given observations of the other 24 elemental windows. Each of the element windows is shown on the x-axis, ordered from the most informative window with respect to the primary selected element, that remains after conditioning on all previous element windows. To take the top right-hand sub-panel as an example: one would learn the most about the C window by observing Ni, then adding Ce, Ti {\it et cetera}. The y-axis quantifies this predictivity of successive elements as a measure of information gain, which is the change in entropy of the system provided by conditioning on another piece of information. Note the changing range in scale of the measure of information gain for the six different elements. The gain of the 24 additional element windows in the example of the C primary window is less than the information gain for the Na primary windows. A larger overall difference is indicative of a larger overall information gain by measuring more elements. Note that the near exponential element-information gain relation, while becoming far less steep, does not entirely flatten, which indicates that each single element adds additional information to learn about the primary element. Although elements are highly correlated, there is a small intrinsic variance in each element that is not predicted in full by the remaining set of windows.}
     \label{fig:single_element_information}
 \end{figure*}
 
-% most predictive
-% y axis quantifes the information gain. 
-%the information gain is defined here as the difference between the log of the ratio of the determinant of the covariance matrix conditioned on observation in some other window and divided by the covariance matrix not condioned on any other obsservation. 
-%log of the determinant of the covariance matirx tells  you the change in entropy of the system that you would get by conditioning on another piece of information.
-% so it is very much an amoutn of information.
-%low dimensional to some threshold
-%two things - not looking at single elemental abundances because there might be other stuff in those windows, we are not using the same basis as abundances. Even if we were looking at abundances, not perfectly predictive. 
-%intrinsic variance is coming out in this figure. 
-
 
 In Figure~\ref{fig:single_element_information} we plot the most informative windows for our six elements of interest first, along with the information gained by observing each additional window moving to the right on the x-axis. The windows' labels are coloured by their elemental family, with members of the target element's family picked out in bold. Recall that our information gain metric can be interpreted as the logarithm of the fractional reduction in volume of the error ellipses on the true spectrum. These plots cover the rough range \smf{$1.4 \le I \le 5.3$}, corresponding to reducing the error volume by factors of 4 to \smf{200}. Reflecting the qualitative results of Figure~\ref{fig:single_element_errs}, each of the curves in Figure~\ref{fig:single_element_information} flattens as more elements are observed, indicating that the single greatest information gain is provided by observing the most informative elemental window and the bulk of the information is provided by the first 10 or so elements. None of the curves plateau, however, and thus all elements provide information on the window of interest. It is perhaps interesting to note that the most informative element is not, in general, from the same family as the element of interest (though this is true for magnesium). We caution over-interpretation of this point, however, for two reasons: 1) this conclusion applies only to this specific set of spectral windows; and 2) these windows are broader than the elemental features they are designed to capture, and can therefore contain information about a number of elements.
-
-%Log scale so fractional gain for first N elements is XX and fractional gain for elements $>$ 5 is XX percent, relatively independent of which element is conditioned on.
 
 Having discussed our detailed findings for the six illustrative elemental windows, we now summarize the results for all of the elemental windows. In Figure~\ref{fig:all_element_information} we plot the information gains for every pair of windows; that is, for each elemental window we plot the information we would gain by observing each other window perfectly. As we have demonstrated in Figures~\ref{fig:single_element_errs} and~\ref{fig:single_element_information}, there is much information to be gained by adding further observations, but given there are 24! ways of ordering them we will have to make do with the first. In doing so, we at least discover the most informative elemental pairs. We present the complete set of information gains in two ways. In the left panel of Figure~\ref{fig:all_element_information}, we group the elements by their families, sorting within each family by increasing atomic number. The most informative elemental pairs (the brightest yellow pixels) are Ni-Mn (both iron-peak), Mg-Si (both alpha) and Fe-Ti (iron-peak and alpha), and this trend is generically true of the families as a whole: the iron-peak and alpha elements predict both themselves and each other well. Indeed, these elements also predict the other families well.
  
@@ -548,15 +422,7 @@ In this work, we have demonstrated how to pool information from ensembles of ste
 
 We have demonstrated our method's potential using the recently discovered 15789 \AA\ cerium line, a high-value APOGEE target due to its s-process provenance~\citep{Cunha2017}. Our model makes accurate and precise predictions for this line in low-SNR stars in which the line is completely masked, permitting confident measurements of cerium abundances where they would previously have not been possible.
 
-%In the context of the million-star surveys coming online in the coming years, we seek to deliver  de-noised and ``betterized'' individual spectra for individual observations given the information we can learn from stellar ensembles. As such, we aim to optimize the quality and quantity of measurements like chemical abundances and ages that can be made from this spectra. In this work, we use an ensemble of stars to build a model that delivers de-noised individual spectra. As such, we obtain flux measurements for individual stars at higher confidence than their original observations. In Section~\ref{sec:inference}, we demonstrate the improvement in the flux uncertainty, which is a factor of $\approx$ 2 at SNR $\approx$ 20. In addition to this data uncertainty "shrinkage" we are  also able to use our model to successfully predict unmeasured regions of the spectra, that would otherwise be impossible. This enables previously unavailable features of individual stars to be measured. We achieve this using a Gaussian Process inference with multiple classes, that does not assume any analytic form for the covariance function.
-
-%\mkn{make sure to highlight this aspect of our analysis in the text, that we show that we can denoise spectra for abundance measurements but here using the pixels themselves not isolated abundances to examine correlations and information, which is totally legitimate and useful just need to come back to this. }
-
-% As a product of this inference, we are able to quantify the correlations and information content of the data. This interpretability of our methodology in modeling the data opens up numerous avenues of data-driven stellar charaterisation and scientific exploitation. 
-
 Modeling the red clump stars' spectra as a Gaussian Process also allows us to quantify the information gained by observing portions of a star's spectrum, and thereby define the most mutually informative regions of spectra. We have done so for windows centred on 25 elemental absorption lines in the APOGEE wavelength range, demonstrating that the iron-peak and alpha-process elements are particularly mutually informative. Harnessing this information, we are able to predict the spectrum in all but one of our example windows with uncertainty less than the APOGEE noise given high-precision observations of the single most-informative window. While we are unable to perfectly predict the flux in any single elemental window by observing a combination of other windows, we find that the majority of information about a target window is typically contained in the 10-or-so most informative windows. This is a clear demonstration of the power of using the data themselves to drive our understanding of the diversity of (and relationships between) different nucleosynthetic channels. Indeed, the correlation structure and information content that we can measure directly should place strong constraints on the physical processes that control chemical evolution. These relationships could inspire new, data-driven approaches to chemical evolution modeling \citep[also see][]{Casey2019}, replacing current theoretical approaches that fail to reproduce observed elemental yields in detail \citep[e.g.][]{Jan2017, Blancato2019}. Our information gain results also have important repercussions for the design of future observations, motivating the targeting of carefully selected, restricted spectral windows that yield strong predictions on a range of unobserved elements.
-
-%Our examination of the correlation between abundance windows in Section~\ref{sec:info} indicates that there is value in measuring each individual abundance. Additionally, we can say quantitatively how much value this corresponds to. Although we note, these numbers are conditioned on having observed the other spectral regions precisely. We hesitate to make strong statements at this point about the information content of individual elements, as our results are sensitive to the bandwidth of the window taken around each element absorption feature. Our general take-away's are that ..... The information content examination also demonstrates the power of using the data itself to drive our understanding of the diversity of and relationships between different nucleosynthetic channels. Indeed, the correlation structure and information content that we can measure directly should place strong constraints on the physical processes that control chemical evolution. This is relevant to founding an industry of data-driven chemical evolution models, by asserting the relative yields that must be obtained. These yields are currently not reproduced in detail from theoretical approaches \citep[e.g.][and Blancato, submitted, 2019]{Jan2017}. (because we can extract the information out quantitatively) 
 
 It is important at this point to address the current limitations of this method. The computational cost of the method is dominated by the matrix inversions required, which scale as the number of spectral pixels cubed. For each iteration of the Gibbs sampler we must perform one inversion per star and one inversion per class: too many for us to process the complete APOGEE dataset given available resources. In this work, we have restricted ourselves to narrow windows around our target elements; however, our results (most notably Figures~\ref{fig:single_element_information} and~\ref{fig:all_element_information_wide}) clearly show that there is significant value in including more of the spectra if possible. There are two obvious ways to achieve this: by throwing greater computational resources at the problem, or by exploiting the decaying eigenspectrum of the covariance matrices we find to infer a low-rank approximation to the covariance.
 
@@ -564,50 +430,9 @@ In the first approach, we can exploit the manifest parallelism in our algorithm.
 
 In the second approach, the simplest way to reduce the rank of the inferred signal covariance matrix is to project the data onto the largest $m < \nb$ principal components of the {\em sample} covariance matrix prior to inference. Unfortunately, as the sample covariance contains both noise and signal its principal components are suboptimal for this task, severely degrading the inference. A natural solution would be to amend our model to explore only covariance matrices with a restricted structure (e.g., diagonal plus low-rank, along the lines of \citet{Zhang_etal:2013}). We leave such extensions to future work.\footnote{The structure of the covariance matrix also implies that certain kernels could potentially serve as useful covariance functions. Exploration of the utility of, for example, rational quadratic, Gibbs or mixtures of covariance functions~\citep{Rasmussen_Williams} is also left to future work.}
 
-
-%\mkn{ (1) sf write... The choices specific to this data set and technical limitations are as follows......e.g. Currently limiting in this pursuit is the computational cost of the Gaussian process modeling, which here we run on a subset of APOGEE pixels. We select pixels from the full set of $\approx$ 8500 per star, which  cover 23 different element abundance absorption features. We demonstrate proof of concept and success of this approach on our subset of data.  Solving the technical challenges of feasibly scaling up to the full set of 8500 pixels for the APOGEE spectra will enable us to fully take advantage of this new era of data and the plethora of scientific exploits it enables. sf: notes for paragraphs above - other  methodological/technical aspects that would need to be further built? e.g. projection for computational cost in 5 years if nothing else changed.  }
-
 In the meantime, we are restricted to carrying out the analysis in windows as in this work. As the results depend entirely on the windows selected, the set of windows should be carefully optimized for the task at hand. In this proof-of-concept paper, we simply selected the strongest well-defined lines for a range of interesting elements, using a fixed bandwidth for all windows. For targeted applications, our information gain metric provides a well-motivated tool with which to optimize both the positions and widths of the elemental windows used. We have demonstrated in this work that restricting to a subset of windows still permits significant denoising and inpainting. This performance can be adapted to particular goals through careful definition of the windows; however, cutting the spectra clearly penalizes our ability to make serendipitous discoveries of new lines. We have shown here the method's ability to discover weak lines in noisy and masked spectra, but this is only possible because some stars have observed the relevant wavelengths. The loss of discovery space is a cost that must be weighed against improved performance in future applications of this work.
 
-%\mkn{ choices - (i) we didn't optimise over any lines, we selected nominally around the strongest lines - (ii) discovery space  `` We hesitate to make strong statements at this point about the information content of individual elements, however, as our results are sensitive to the bandwidth of the window taken around each element absorption feature.''}
-
-%The final current limitation of this method is the restriction to a single class \bdw{Well the method is not restricted, but sampling performance is poor for the very high-dimensional data we are dealing with here. Having said that, I would de-emphasize the mixture model aspect in the abstract, since we do not end up showing results for that in the paper.}. In physical terms, this translates to the assumption that the red clump stars are distributed as a single multivariate normal in spectral space \bdw{By lumping very different populations into a single class prediction performance would suffer because  covariances for each class could be significantly smaller, but I'm not sure we'd get "wrong" results. I'm a bit uncomfortable with the speculative but strong statements ("critical", "naïve in the extreme" etc.) in this paragraph about what would happen because we haven't tried the method for well-separated classes - it might actually work for all we know and the APOGEE data set may simply not separate very clearly into separate classes. Also our model actually includes multiple classes, what we are missing is a way to make the sampling over class labels more mobile. This is correcly mentioned towards the end of this final paragraph, but I'd cut out some of the bits in the beginning and middle.}. This may be a good assumption for the red clump, but allowing for multiple classes, as discussed at the end of Section~\ref{sec:inference}, is critical in extending the scope of this first methodological demonstration beyond the red clump stars and and into the Milky Way proper. We know that different stellar populations have different spectral correlation structures: globular clusters, for example, have known abundance anti-correlations that are not seen in the disk and field halo stars~\citep[e.g.,][]{Kraft1997,Gratton2015, Pan2017,Carr2019}. It is na\"ive in the extreme to expect that all populations will have Gaussian distributions in spectral space. Modifying our sampler to correctly fit multiple classes will allow us to not only model these different, potentially non-Gaussian populations completely, but also discover new populations. This is particularly interesting as it ties into, for example, a method of understanding chemodynamical classes in the Galactic halo, which is expected to consist of discrete chemical sub-systems with different elemental correlations. Fitting multiple classes is also critical for the correct modeling and identification of outliers. Depending on their frequency, outliers will manifest as non-Gaussianity or multi-modality in the bulk population, and increase the variance of the inferred true spectra and covariance matrix if incorrectly modeled as a single Gaussian population. As with the other limitations, investigating modifications to the sampler (simulated annealing, for example) to address this issue is left to future work.
-
 The final current limitation of this method is the poor sampling performance we observe when inferring the properties of multiple populations in our very high-dimensional APOGEE data. For the moment, we have chosen to model the red clump with a single class, asserting that the stars' binned spectra are distributed as a multivariate normal. As such, our handling of contaminants (or outliers) is suboptimal. Contaminants will manifest as non-Gaussianity or multi-modality in the bulk population, and will therefore increase the variance of the inferred true spectra and covariance matrix if incorrectly modeled as a single Gaussian population. We do not expect contaminants to impact our results strongly, as they are estimated to make up only 5-10\% of our red clump sample \citep{Bovy2015}, but the same can not be said for more diverse datasets. We know that different stellar populations have different spectral correlation structures: globular clusters, for example, have known abundance anti-correlations that are not seen in the disk and field halo stars~\citep[e.g.,][]{Kraft1997,Gratton2015, Pan2017,Carr2019}. Demonstrating that our sampler can efficiently and accurately fit multiple classes will allow us to not only model datasets containing different, potentially non-Gaussian populations completely, but also discover new populations. This is particularly interesting as it ties into, for example, a method of understanding chemodynamical classes in the Galactic halo, which is expected to consist of discrete chemical sub-systems with different elemental correlations. As with the other limitations, investigating modifications to the sampler (simulated annealing, for example) to address this issue, is left to future work.
-
-
-
-%%%%%%%%%%%%%%%%%
-
-
-
- 
- %refine the physical processes governing the chemical evolution of stellar systems.
- 
- %\textcolor{red}{mkn: sf  - shows each have unique information but very marginal beyond some point - is it possible to state how marginal, say a factor of 100th or something like this by the time you have measured 5 elements, for pivoting on one element - do you see what I am getting at here? }
-
-%-use this de-noised data for physics-based measuring abundances (mkn)
-%-point to adding to Sloan V pipeline (mkn)
-%-technical aspects of the limited number of pixels being used. cubic scaling (sf)
-
-
-%\section{Conclusions}
-%\label{sec:conclusions}
-%-opportunity for data-driven approaches
-%-this paper is first proof of concept
-%-code is publicly available. 
-%-successes in x,y,z, limitations in x1,y1,z1 as discussed.
-%-more work to be done as outlined
-%-will enable full use of the data which is going to arrive in large number for scientific exploits
-
-%\smf{MKN: I don't feel like we need conclusions beyond the discussion but you might think differently! Let me know :)}
-
-%-We demonstrate our methodology on the subset of 20,000 red clump stars in the APOGEE survey. Can imagine running across entire parameter space of APOGEE and providing generated model of set of abundance features for determining higher precision abundances for and where data is missing, as well as weak (Ce, Nd) elements difficult to measure from spectra. Also expect a way to classify star formation histories using correlation matricies of elements. Expect for example that a Gaussian mixture model correlation matrix of globular cluster star would look very different to field star, element correlations are direct reflection of stellar phyiscs and star formation history that is dissimilar between different Milky Way populations. Could also be used as a classifier using spectral feature correlations themselves. 
-%-first characterisation / way of measuring correlation between elements/wavelength regions
-%-people could use all of the de-noised regions to measure all of the interesting elements in APOGEE e.g. Ce, Nd
-%Our work sets out avenues for continued exploration, and significant opportunity with respect to this is in the low resolution regime. Precision abundances can be derived from very low resolution spectra (Ho et al., 2016). We therefore must seek to better understand the information captured in the spectral features from an empirical point of view. 
-%-
-%- \textcolor{red}{publicly available code online here} 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -620,7 +445,7 @@ SMF is supported by the Royal Society. MKN is supported in part by the Sloan Fou
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \bibliographystyle{mnras}
-\bibliography{mknbib} % if your bibtex file is called example.bib
+\bibliography{mknbib}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
