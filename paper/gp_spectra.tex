@@ -214,7 +214,7 @@ where the integral can be performed by identifying the integrand as an un-normal
 \prob\left(\objspec_i|\specmean\right) \propto 
 e^{-\frac{\nb + 2}{2} \ln{ \left| \left(\objspec_i-\specmean \right) \otimes \left(\objspec_i-\specmean \right) + \epsilon \, \identity \right|}},
 \end{equation}
-from which it becomes clear that this is a non-convex highly sparsifying prior. Conceptually, it strongly prefers spectra close to the class mean, but if a spectrum differs greatly from the mean it is only penalized logarithmically. Note that the covariance prior's scale matrix, $\epsilon \, \identity$, acts to soften the prior, providing a small but non-zero floor to the determinant that reduces the preference for spectra exactly matching the mean.}
+from which it becomes clear that this is a non-convex highly sparsifying prior. Conceptually, it strongly prefers spectra close to the class mean, but if a spectrum differs greatly from the mean it is only penalized logarithmically. Note that the covariance prior's scale matrix, $\epsilon \, \identity$, acts to soften the prior, providing a small but non-zero floor to the determinant that reduces the preference for spectra exactly matching the mean. This reasoning explains why Gaussian-process modeling can outperform sparse image-reconstruction techniques~\citep{Sutter_etal:2014}.}
 
 \begin{table}
     \centering
