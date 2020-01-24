@@ -143,6 +143,7 @@ inpaint = False
 n_spectra = 29502
 n_classes = 1
 n_samples = 10000 # 1000
+jeffreys_prior = False
 diagnose = False
 datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
@@ -161,7 +162,10 @@ if recovery_test:
 	elif win_wid == 1.0:
 		j_rec_test_lo = 135 # included
 		j_rec_test_hi = 144 # not included
-group_by_fam = False
+	else:
+		j_rec_test_lo = 211 # included
+		j_rec_test_hi = 224 # not included
+group_by_fam = True
 sort_by = 'z' # 'z' or 'alpha'
 opt_over_elem = True
 dist_met = 'abs' # 'abs' or 'euc'
@@ -198,6 +202,8 @@ if precompress:
 		io_base += 'inpaint_pca_'
 	else:
 		io_base += 'pca_'
+if not jeffreys_prior:
+	io_base += 'iw_prior_'
 if alt_win:
 	io_base += 'alt_win_'
 if recovery_test:
@@ -457,8 +463,10 @@ if save_spectra is not None:
 		d_std = np.sqrt(var_noise[save_spectra_ids[ids[i]], :])
 		s_mean = np.mean(save_spectra_samples[ids[i], :, n_warmup:], -1)
 		s_std = np.std(save_spectra_samples[ids[i], :, n_warmup:], -1)
+		#axes[i].fill_between(wl, d_mean + d_std, d_mean - d_std, \
+		#					 color='r', alpha=0.5)
 		axes[i].fill_between(wl, d_mean + d_std, d_mean - d_std, \
-							 color='r', alpha=0.5)
+							 color='Salmon')
 		axes[i].fill_between(wl, s_mean + s_std, s_mean - s_std, \
 							 color='Grey', alpha=0.7)
 		axes[i].set_xlabel(r'${\rm index}\,(i)$', fontsize=18)
