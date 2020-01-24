@@ -174,7 +174,7 @@ sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
-n_spectra = 29502
+n_spectra = 561 # 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -182,11 +182,13 @@ n_gp_reals = 50
 zero_mean = False
 jeffreys_prior = False
 diagnose = False
-datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+#datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+datafile = 'data/solartwins_alpha_nonorm.h5'
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
-save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+#save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+save_spectra = 'data/solartwin_ids_lowest_10_snr.txt' # filename or None
 alt_win = False
-win_wid = 2.5
+win_wid = 1.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-2
@@ -195,7 +197,10 @@ eval_thresh = 1.0e-2
 if datafile is None:
 	io_base = 'simple_test_'
 else:
-	io_base = 'apogee_'
+	if 'solartwins' in datafile:
+		io_base = 'solartwins_'
+	else:
+		io_base = 'apogee_'
 	if window is not None:
 		window_file = window.split('/')[1]
 		io_base += window_file.split('.')[0] + '_'
@@ -380,9 +385,13 @@ else:
 		# processes
 		n_to_load = n_spectra
 		n_file = 1
-		wl, full_data = read_spectra(n_to_load, \
-									 datafile.format(n_file), \
-									 return_wl=True)
+		if 'solartwins' in datafile:
+			wl, full_data = read_spectra(n_to_load, datafile, \
+										 return_wl=True)
+		else:
+			wl, full_data = read_spectra(n_to_load, \
+										 datafile.format(n_file), \
+										 return_wl=True)
 
 		# determine data selection
 		if window is not None:
