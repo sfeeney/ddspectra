@@ -140,14 +140,16 @@ cm = mpcm.get_cmap('plasma')
 constrain = False
 precompress = False
 inpaint = False
-n_spectra = 29502
+n_spectra = 561 # 29502
 n_classes = 1
-n_samples = 10000 # 1000
+n_samples = 500 # 10000 # 1000
 jeffreys_prior = False
 diagnose = False
-datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+#datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+datafile = 'data/solartwins_alpha_nonorm.h5'
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
-save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+#save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+save_spectra = 'data/solartwin_ids_lowest_10_snr.txt' # filename or None
 minimal_save_spectra = True
 alt_win = False
 win_wid = 1.5
@@ -165,7 +167,7 @@ if recovery_test:
 	else:
 		j_rec_test_lo = 211 # included
 		j_rec_test_hi = 224 # not included
-group_by_fam = True
+group_by_fam = False
 sort_by = 'z' # 'z' or 'alpha'
 opt_over_elem = True
 dist_met = 'abs' # 'abs' or 'euc'
@@ -190,7 +192,10 @@ cols_fam = [cm_fam((2.0 * i + 1.0) / 11.0) for i in range(n_fam)]
 if datafile is None:
 	io_base = 'simple_test_'
 else:
-	io_base = 'apogee_'
+	if 'solartwins' in datafile:
+		io_base = 'solartwins_'
+	else:
+		io_base = 'apogee_'
 	if window is not None:
 		window_file = window.split('/')[1]
 		io_base += window_file.split('.')[0] + '_'
@@ -218,9 +223,13 @@ if win_wid != 2.5:
 # processes
 n_to_load = n_spectra
 n_file = 1
-wl, full_data = read_spectra(n_to_load, \
-							 datafile.format(n_file), \
-							 return_wl=True)
+if 'solartwins' in datafile:
+	wl, full_data = read_spectra(n_to_load, datafile, \
+								 return_wl=True)
+else:
+	wl, full_data = read_spectra(n_to_load, \
+								 datafile.format(n_file), \
+								 return_wl=True)
 
 # read in window definitions. file contains elements with 
 # positions of features within three wavelength ranges. take 
