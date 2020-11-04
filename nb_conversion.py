@@ -174,7 +174,6 @@ sample = True
 precompress = False
 inpaint = False
 n_bins = 7 # 50
-n_spectra = 561 # 29502
 n_classes = 1
 n_samples = 500 # 1000
 n_warmup = n_samples / 4
@@ -182,22 +181,28 @@ n_gp_reals = 50
 zero_mean = False
 jeffreys_prior = False
 diagnose = False
-#datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
-datafile = 'data/solartwins_alpha_nonorm.h5'
+solar_twins = False
+if solar_twins:
+	datafile = 'data/solartwins_alpha_nonorm.h5'
+	save_spectra = 'data/solartwin_ids_lowest_10_snr.txt' # filename or None
+	n_spectra = 561
+else:
+	datafile = 'data/redclump_{:d}_alpha_nonorm.h5' # filename or None
+	save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
+	n_spectra = 29502
 window = 'data/centers_final.txt' # 'data/centers_subset2_ce_nd.txt' # filename or None
-#save_spectra = 'data/ids_ce_nd_1_fully_masked_lowest_10_snr.txt' # filename or None
-save_spectra = 'data/solartwin_ids_lowest_10_snr.txt' # filename or None
 alt_win = False
 win_wid = 1.5
 inf_noise = 1.0e5
 reg_noise = 1.0e-6
 eval_thresh = 1.0e-2
+alt_init = True
 
 # build up output filename
 if datafile is None:
 	io_base = 'simple_test_'
 else:
-	if 'solartwins' in datafile:
+	if solar_twins:
 		io_base = 'solartwins_'
 	else:
 		io_base = 'apogee_'
@@ -223,6 +228,8 @@ if recovery_test:
 	i_rec_test = 21495
 if win_wid != 2.5:
 	io_base += 'win_wid_{:3.1f}_'.format(win_wid).replace('.', 'p')
+if alt_init:
+	io_base += 'alt_init_'
 
 # set up identical within-chain MPI processes
 if use_mpi:
@@ -385,7 +392,7 @@ else:
 		# processes
 		n_to_load = n_spectra
 		n_file = 1
-		if 'solartwins' in datafile:
+		if solar_twins:
 			wl, full_data = read_spectra(n_to_load, datafile, \
 										 return_wl=True)
 		else:
@@ -661,20 +668,28 @@ cov_sample = np.zeros((n_bins, n_bins, n_classes))
 spectra_samples = np.zeros((n_spectra, n_bins))
 for k in range(n_classes):
 	in_class_k = (class_id_sample == k)
-	if datafile is None:
+	if alt_init:
 		if not zero_mean:
-			mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
-		cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
+			mean_sample[:, k] = 1.0
+		cov_sample[:, :, k] = np.eye(n_bins)
 	else:
-		if not zero_mean:
-			mean_sample[:, k] = np.mean(full_data[in_class_k, :], 0)
-		cov_sample[:, :, k] = np.cov(full_data[in_class_k, :], rowvar=False)
+		if datafile is None:
+			if not zero_mean:
+				mean_sample[:, k] = np.mean(data[in_class_k, :], 0)
+			cov_sample[:, :, k] = np.cov(data[in_class_k, :], rowvar=False)
+		else:
+			if not zero_mean:
+				mean_sample[:, k] = np.mean(full_data[in_class_k, :], 0)
+			cov_sample[:, :, k] = np.cov(full_data[in_class_k, :], rowvar=False)
 for j in range(n_spectra):
 	#spectra_samples[j, :] = mean_sample[:, class_id_sample[j]]
-	if datafile is None:
-		spectra_samples[j, :] = data[j, :]
+	if alt_init:
+		spectra_samples[j, :] = 1.0
 	else:
-		spectra_samples[j, :] = full_data[j, :]
+		if datafile is None:
+			spectra_samples[j, :] = data[j, :]
+		else:
+			spectra_samples[j, :] = full_data[j, :]
 mean_samples = np.zeros((n_bins, n_classes, n_samples))
 cov_samples = np.zeros((n_bins, n_bins, n_classes, n_samples))
 class_probs_samples = np.zeros((n_classes, n_samples))
